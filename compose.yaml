@@ -3,6 +3,7 @@
 #
 #   docker compose up -d postgres            # Ch 0
 #   docker compose up -d postgres neo4j-memory  # Ch 1
+#   docker compose up -d                     # Ch 2 (adds Cube)
 
 name: brightwater
 
@@ -51,8 +52,25 @@ services:
       interval: 5s
       retries: 30
 
+  cube:
+    # Cube Core (Apache-2.0). The model files it serves are compiled from
+    # semantic/brightwater.ossie.yaml by `brightwater semantic build` (Ch 2).
+    image: cubejs/cube:v1.6.77
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      CUBEJS_DB_TYPE: postgres
+      CUBEJS_DB_HOST: postgres
+      CUBEJS_DB_NAME: brightwater
+      CUBEJS_DB_USER: brightwater
+      CUBEJS_DB_PASS: brightwater
+      CUBEJS_DEV_MODE: "true"        # hot-reloads model files; Ch 8 turns this off
+      CUBEJS_API_SECRET: brightwater-dev-secret
+    ports: ["4000:4000"]
+    volumes:
+      - ./semantic/cube:/cube/conf
+
   # ---------------------------------------------------------------- later
-  # cube:           Ch 2, the semantic layer
   # neo4j-aip:      Ch 4, AIP procedure catalog and run history
   # langfuse:       Ch 3, traces
   # vllm, tei:      Ch 6-7, private inference

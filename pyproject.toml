@@ -10,9 +10,11 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml==6.0.3",           # MIT
     "pg8000==1.31.6",          # BSD-3-Clause (pure Python; psycopg is LGPL)
+    "httpx==0.28.1",           # BSD-3-Clause, Cube REST client
     "linkml==1.12.1",          # Apache-2.0, Ch 1
     "pyshacl==0.40.2",         # Apache-2.0, Ch 1
     "neo4j-agent-memory==0.8.0",  # Apache-2.0, Ch 1
+    "jsonschema==4.26.0",      # MIT, validates the Ossie model, Ch 2
 ]
 
 [project.optional-dependencies]
@@ -33,4 +35,5 @@ testpaths = ["tests"]
 markers = [
     "postgres: needs the Postgres service from compose.yaml",
     "neo4j: needs the Neo4j service from compose.yaml",
+    "cube: needs the Cube service from compose.yaml",
 ]

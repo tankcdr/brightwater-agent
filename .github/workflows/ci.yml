@@ -36,4 +36,16 @@ jobs:
       - run: uv run brightwater fixture generate
       - run: uv run brightwater db init && uv run brightwater db load && uv run brightwater policy sync
 
+      # Ch 2: compile the semantic model and start Cube against it.
+      - run: uv run brightwater semantic build
+      - name: start cube
+        run: |
+          docker run -d --name cube --network host \
+            -v "$PWD/semantic/cube:/cube/conf" \
+            -e CUBEJS_DB_TYPE=postgres -e CUBEJS_DB_HOST=localhost -e CUBEJS_DB_NAME=brightwater \
+            -e CUBEJS_DB_USER=brightwater -e CUBEJS_DB_PASS=brightwater \
+            -e CUBEJS_DEV_MODE=true -e CUBEJS_API_SECRET=brightwater-dev-secret \
+            cubejs/cube:v1.6.77
+          for i in $(seq 1 60); do curl -sf localhost:4000/readyz && break; sleep 2; done
+
       - run: uv run pytest -v

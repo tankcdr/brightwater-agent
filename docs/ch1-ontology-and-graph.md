@@ -278,4 +278,4 @@ Undo it: `rm -rf fixture/typo`, then `brightwater db init && brightwater db load
 
 The graph now holds entities the agent can traverse, and every one of them passed one schema on the way in. What it does not hold is a single governed definition of any number. Chapter 0's DSCR still lives in a SQL string, and so does the 50% control threshold that decides group membership. Chapter 2 moves every definition into one file and puts a server in front of it.
 
-**Previous:** [Chapter 0](ch0-systems-of-record.md) · **Next:** Chapter 2. Semantic layer
+**Previous:** [Chapter 0](ch0-systems-of-record.md) · **Next:** [Chapter 2. Semantic layer](ch2-semantic-layer.md)

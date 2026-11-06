@@ -1,0 +1,204 @@
+# Brightwater lending metrics, written to the Apache Ossie core spec (0.2.0.dev0).
+#
+# This file is the single definition of every number the policy and the agent
+# use. `brightwater semantic build` compiles it into Cube model files;
+# `brightwater semantic reconcile` compiles it a second way, straight to SQL,
+# and checks that Cube's answers match raw Postgres.
+#
+# Thresholds are NOT here. "DSCR" is a definition; "1.25" is policy and lives
+# in src/brightwater/policy.py. The same split holds for every metric below.
+#
+# Field expressions use Ossie's portable SQL (OSSIE_SQL_2026). Where Postgres
+# spells something differently (date subtraction), a POSTGRES dialect entry
+# carries the Postgres form, and the compiler prefers it.
+
+version: 0.2.0.dev0
+name: brightwater_lending
+description: Governed metrics for small-business loan assessment at Brightwater Community Bank.
+ai_context:
+  instructions: >-
+    Every metric is computed per loan application, as of the application's
+    submitted_on date. Always filter or group by application_id. Do not
+    compare a metric to a threshold here; thresholds are lending policy.
+
+datasets:
+  - name: application
+    source: credit.application
+    primary_key: [application_id]
+    description: Open small-business loan applications.
+    fields:
+      - {name: application_id, expression: {sql: application_id}, datatype: String}
+      - {name: business_id, expression: {sql: business_id}, datatype: String}
+      - {name: requested_amount, expression: {sql: requested_amount}, datatype: Decimal}
+      - {name: submitted_on, expression: {sql: submitted_on}, datatype: Date}
+      - {name: purpose, expression: {sql: purpose}, datatype: String}
+
+  # ---------------------------------------------------------------- profile
+  - name: application_profile
+    description: One row per application with the applicant's compliance standing and tenure.
+    primary_key: [application_id]
+    source: >-
+      SELECT a.application_id, a.submitted_on, b.customer_since,
+             k.status AS kyc_status, k.next_review_due AS kyc_next_review_due,
+             (SELECT max(e.occurred_on) FROM compliance.adverse_event e
+               WHERE e.business_id = a.business_id AND e.occurred_on <= a.submitted_on) AS last_adverse_event_on
+      FROM credit.application a
+      JOIN ledger.business b ON b.business_id = a.business_id
+      LEFT JOIN compliance.kyc k ON k.business_id = a.business_id
+    fields:
+      - {name: application_id, expression: {sql: application_id}, datatype: String}
+      - name: kyc_current
+        description: KYC status is current and the next review is not overdue on the application date.
+        datatype: Boolean
+        expression:
+          sql: COALESCE(kyc_status = 'current' AND kyc_next_review_due >= submitted_on, FALSE)
+      - name: days_since_last_adverse_event
+        description: Days from the most recent adverse event on or before the application date. Null if none.
+        datatype: Integer
+        expression:
+          sql: DATEDIFF(day, last_adverse_event_on, submitted_on)
+          dialects:
+            - {dialect: POSTGRES, expression: "submitted_on - last_adverse_event_on"}
+      - name: tenure_years
+        description: Years the business has banked with Brightwater, as of the application date.
+        datatype: Decimal
+        ai_context: {synonyms: [customer tenure, relationship length]}
+        expression:
+          sql: ROUND(DATEDIFF(day, customer_since, submitted_on) / 365.25, 2)
+          dialects:
+            - {dialect: POSTGRES, expression: "ROUND(((submitted_on - customer_since) / 365.25)::numeric, 2)"}
+
+  # ---------------------------------------------------------------- DSCR
+  - name: application_month
+    description: >-
+      One row per application per month in the DSCR window: the 12 full
+      calendar months before the month of application, with cash flow summed
+      across all of the business's deposit accounts.
+    primary_key: [application_id, month]
+    source: >-
+      SELECT a.application_id, cf.month,
+             sum(cf.operating_inflow) AS operating_inflow,
+             sum(cf.nonoperating_inflow) AS nonoperating_inflow,
+             sum(cf.outflow) AS outflow,
+             (SELECT coalesce(sum(f.monthly_payment), 0) FROM credit.facility f
+               WHERE f.business_id = a.business_id AND f.opened < a.submitted_on) AS existing_monthly_payment,
+             a.requested_amount, a.annual_rate, a.term_months
+      FROM credit.application a
+      JOIN ledger.deposit_account d ON d.business_id = a.business_id
+      JOIN ledger.monthly_cash_flow cf ON cf.account_id = d.account_id
+      WHERE cf.month >= date_trunc('month', a.submitted_on) - interval '12 months'
+        AND cf.month < date_trunc('month', a.submitted_on)
+      GROUP BY a.application_id, a.business_id, a.submitted_on, cf.month,
+               a.requested_amount, a.annual_rate, a.term_months
+    fields:
+      - {name: application_id, expression: {sql: application_id}, datatype: String}
+      - {name: month, expression: {sql: month}, datatype: Date}
+      - name: net_cash_flow
+        description: Cash available for debt service in the month.
+        datatype: Decimal
+        expression:
+          sql: operating_inflow + nonoperating_inflow - outflow
+      - name: debt_service
+        description: >-
+          Payments due in the month: existing facilities plus the level
+          monthly payment on the requested loan.
+        datatype: Decimal
+        expression:
+          sql: existing_monthly_payment + requested_amount * (annual_rate / 12) / (1 - POWER(1 + annual_rate / 12, -term_months))
+    metrics:
+      - {name: cash_available, expression: {sql: SUM(net_cash_flow)}, datatype: Decimal,
+         description: Cash available for debt service over the window.}
+      - {name: debt_service_total, expression: {sql: SUM(debt_service)}, datatype: Decimal,
+         description: Debt service due over the window.}
+      - name: dscr
+        description: Debt service coverage ratio over the 12-month window.
+        datatype: Decimal
+        ai_context: {synonyms: [debt service coverage, DSCR, coverage ratio]}
+        expression:
+          sql: SUM(net_cash_flow) / NULLIF(SUM(debt_service), 0)
+
+  # ---------------------------------------------------------------- group exposure
+  - name: group_member
+    description: >-
+      One row per application per business in its group: the applicant, plus
+      every business in which any owner of the applicant holds more than 50%.
+    primary_key: [application_id, member_business_id]
+    source: >-
+      SELECT a.application_id, m.business_id AS member_business_id,
+             (m.business_id = a.business_id) AS is_applicant, a.requested_amount,
+             (SELECT coalesce(sum(f.outstanding_balance), 0) FROM credit.facility f
+               WHERE f.business_id = m.business_id) AS outstanding_balance
+      FROM credit.application a
+      CROSS JOIN LATERAL (
+          SELECT a.business_id
+          UNION
+          SELECT o2.business_id
+          FROM registry.ownership o1
+          JOIN registry.ownership o2 ON o2.person_id = o1.person_id AND o2.pct > 50
+          WHERE o1.business_id = a.business_id
+      ) AS m (business_id)
+    fields:
+      - {name: application_id, expression: {sql: application_id}, datatype: String}
+      - {name: member_business_id, expression: {sql: member_business_id}, datatype: String}
+      - {name: is_applicant, expression: {sql: is_applicant}, datatype: Boolean}
+      - name: exposure
+        description: Outstanding balances at this member, plus the requested amount if it is the applicant.
+        datatype: Decimal
+        expression:
+          sql: outstanding_balance + CASE WHEN is_applicant THEN requested_amount ELSE 0 END
+    metrics:
+      - name: group_exposure
+        description: Requested amount plus outstanding balances across the group.
+        datatype: Decimal
+        ai_context: {synonyms: [related exposure, total exposure, connected exposure]}
+        expression: {sql: SUM(exposure)}
+      - {name: group_size, expression: {sql: COUNT(member_business_id)}, datatype: Integer}
+
+  # ---------------------------------------------------------------- related delinquency
+  - name: related_facility
+    description: >-
+      One row per application per facility at the applicant or at any business
+      in which an owner of the applicant holds a stake. owner_stake_pct is the
+      largest such stake (100 for the applicant's own facilities).
+    primary_key: [application_id, facility_id]
+    source: >-
+      SELECT a.application_id, a.submitted_on, f.facility_id, f.business_id, r.owner_stake_pct,
+             (SELECT min(p.due_date) FROM credit.payment p
+               WHERE p.facility_id = f.facility_id AND p.due_date <= a.submitted_on
+                 AND (p.paid_date IS NULL OR p.paid_date > a.submitted_on)) AS oldest_unpaid_due
+      FROM credit.application a
+      CROSS JOIN LATERAL (
+          SELECT a.business_id, 100::numeric
+          UNION ALL
+          SELECT o2.business_id, max(o2.pct)
+          FROM registry.ownership o1
+          JOIN registry.ownership o2 ON o2.person_id = o1.person_id AND o2.business_id <> a.business_id
+          WHERE o1.business_id = a.business_id
+          GROUP BY o2.business_id
+      ) AS r (business_id, owner_stake_pct)
+      JOIN credit.facility f ON f.business_id = r.business_id
+    fields:
+      - {name: application_id, expression: {sql: application_id}, datatype: String}
+      - {name: facility_id, expression: {sql: facility_id}, datatype: String}
+      - {name: business_id, expression: {sql: business_id}, datatype: String}
+      - {name: owner_stake_pct, expression: {sql: owner_stake_pct}, datatype: Decimal}
+      - name: days_past_due
+        description: Days from the oldest payment still unpaid on the application date; 0 if none.
+        datatype: Integer
+        ai_context: {synonyms: [days late, delinquency, days delinquent]}
+        expression:
+          sql: COALESCE(DATEDIFF(day, oldest_unpaid_due, submitted_on), 0)
+          dialects:
+            - {dialect: POSTGRES, expression: "COALESCE(submitted_on - oldest_unpaid_due, 0)"}
+    metrics:
+      - {name: max_days_past_due, expression: {sql: MAX(days_past_due)}, datatype: Integer}
+
+relationships:
+  - {name: profile_to_application, from: application_profile, to: application,
+     from_columns: [application_id], to_columns: [application_id]}
+  - {name: month_to_application, from: application_month, to: application,
+     from_columns: [application_id], to_columns: [application_id]}
+  - {name: member_to_application, from: group_member, to: application,
+     from_columns: [application_id], to_columns: [application_id]}
+  - {name: facility_to_application, from: related_facility, to: application,
+     from_columns: [application_id], to_columns: [application_id]}

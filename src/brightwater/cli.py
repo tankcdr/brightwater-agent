@@ -20,11 +20,13 @@ DEFAULT_OUT = ROOT / "fixture" / "out"
 
 
 def _metrics_backend(name: str | None):
-    name = name or os.getenv("BRIGHTWATER_METRICS", "sql")
+    name = name or os.getenv("BRIGHTWATER_METRICS", "cube")
     if name == "sql":
         from . import metrics_sql as backend
+    elif name == "cube":
+        from . import metrics_cube as backend
     else:
-        raise SystemExit(f"unknown metrics backend {name!r} (sql; Ch 2 adds cube)")
+        raise SystemExit(f"unknown metrics backend {name!r} (sql or cube)")
     return name, backend
 
 
@@ -122,6 +124,31 @@ def cmd_graph_query(a: argparse.Namespace) -> None:
     print(json.dumps(out, indent=2, default=str))
 
 
+def cmd_semantic_build(a: argparse.Namespace) -> None:
+    from . import semantic
+    written = semantic.build_cube_model(Path(a.model), Path(a.out))
+    for p in written:
+        print(f"wrote {p}")
+
+
+def cmd_semantic_reconcile(a: argparse.Namespace) -> None:
+    from . import semantic
+    ok = semantic.reconcile(Path(a.model), a.application_ids or list(fixture.load_expectations()))
+    sys.exit(0 if ok else 1)
+
+
+def cmd_semantic_impact(a: argparse.Namespace) -> None:
+    from collections import Counter
+
+    from . import semantic
+    changes = semantic.impact(Path(a.baseline), Path(a.model))
+    for c in changes:
+        print(f"{c['application_id']:<10} {c['before']:>8} -> {c['after']:<8} DSCR {float(c['dscr_before']):.2f} -> "
+              f"{float(c['dscr_after']):.2f}  fired {','.join(c['fired_after']) or '-'}")
+    moves = Counter((c["before"], c["after"]) for c in changes)
+    print(f"{len(changes)} application(s) change: " + ", ".join(f"{n} {b}->{a}" for (b, a), n in moves.most_common()))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="brightwater", description="Brightwater loan assessment tutorial")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -149,7 +176,7 @@ def main(argv: list[str] | None = None) -> None:
     asp = sub.add_parser("assess", help="compute facts and apply the policy")
     asp.add_argument("application_ids", nargs="*")
     asp.add_argument("--handbuilt", action="store_true", help="assess the six hand-built applicants")
-    asp.add_argument("--metrics", choices=["sql"], help="where facts come from (default: $BRIGHTWATER_METRICS or sql)")
+    asp.add_argument("--metrics", choices=["sql", "cube"], help="where facts come from (default: $BRIGHTWATER_METRICS or cube)")
     asp.add_argument("--json", action="store_true")
     asp.set_defaults(fn=cmd_assess)
 
@@ -165,6 +192,21 @@ def main(argv: list[str] | None = None) -> None:
     gq.add_argument("name")
     gq.add_argument("--param", dest="params", action="append", default=[], metavar="KEY=VALUE")
     gq.set_defaults(fn=cmd_graph_query)
+
+    se = sub.add_parser("semantic", help="semantic layer").add_subparsers(dest="sub", required=True)
+    sb = se.add_parser("build", help="compile the Ossie model into Cube model files")
+    sb.add_argument("--model", default=str(ROOT / "semantic" / "brightwater.ossie.yaml"))
+    sb.add_argument("--out", default=str(ROOT / "semantic" / "cube" / "model"))
+    sb.set_defaults(fn=cmd_semantic_build)
+    sr = se.add_parser("reconcile", help="check Cube's answers against raw Postgres")
+    sr.add_argument("application_ids", nargs="*")
+    sr.add_argument("--model", default=str(ROOT / "semantic" / "brightwater.ossie.yaml"))
+    sr.set_defaults(fn=cmd_semantic_reconcile)
+
+    si = se.add_parser("impact", help="which applications change outcome under a candidate model")
+    si.add_argument("--model", required=True, help="the candidate Ossie model")
+    si.add_argument("--baseline", default=str(ROOT / "semantic" / "brightwater.ossie.yaml"))
+    si.set_defaults(fn=cmd_semantic_impact)
 
     a = p.parse_args(argv)
     a.fn(a)

@@ -1,4 +1,13 @@
 brightwater-agent
 Copyright 2026 Blueline Commerce, LLC (d/b/a Long Run Advisory)
 
+This product includes software developed at The Apache Software Foundation
+(https://www.apache.org/):
+
+  semantic/vendor/ossie-schema.json
+    Apache Ossie (incubating) core metadata JSON Schema, version 0.2.0.dev0,
+    from https://github.com/apache/ossie at commit
+    8437d59e07c7fa56fcabc4a16d46864fd88d7313. Licensed under the Apache
+    License, Version 2.0. Unmodified.
+
 All business names, people, figures and notes in fixture/ are invented.
