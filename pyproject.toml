@@ -1,0 +1,32 @@
+[project]
+name = "brightwater"
+version = "0.2.0"
+description = "Tutorial: a governed small-business loan assessment agent on an open source intelligence stack"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+# Every runtime dependency is MIT, Apache-2.0, BSD or PostgreSQL licensed.
+# Versions are pinned per chapter tag; see docs/ for why each one is here.
+dependencies = [
+    "pyyaml==6.0.3",           # MIT
+    "pg8000==1.31.6",          # BSD-3-Clause (pure Python; psycopg is LGPL)
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0"]
+
+[project.scripts]
+brightwater = "brightwater.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/brightwater"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "postgres: needs the Postgres service from compose.yaml",
+]

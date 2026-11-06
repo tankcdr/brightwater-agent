@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  proofs:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: brightwater
+          POSTGRES_PASSWORD: brightwater
+          POSTGRES_DB: brightwater
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U brightwater"
+          --health-interval 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv venv -p 3.12 && uv pip install -e ".[dev]"
+
+      # Ch 0: deterministic fixture and the policy proofs.
+      - run: uv run brightwater fixture generate
+      - run: uv run brightwater db init && uv run brightwater db load && uv run brightwater policy sync
+
+      - run: uv run pytest -v

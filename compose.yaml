@@ -1,0 +1,47 @@
+# Services for the tutorial. Each chapter tag enables only what it uses;
+# the commented blocks at the bottom arrive in later chapters.
+#
+#   docker compose up -d postgres            # Ch 0
+
+name: brightwater
+
+services:
+  postgres:
+    # postgres:16 plus pgvector (embeddings, later) and pgaudit (read audit, now).
+    build: docker/postgres
+    image: brightwater/postgres:16
+    environment:
+      POSTGRES_USER: brightwater
+      POSTGRES_PASSWORD: brightwater
+      POSTGRES_DB: brightwater
+    # pgaudit logs every read with the relation it touched. Chapter 9 joins
+    # these lines to a decision id; Chapter 8 narrows them to the agent's role.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pgaudit
+      - -c
+      - pgaudit.log=read
+      - -c
+      - pgaudit.log_relation=on
+      - -c
+      - pgaudit.log_parameter=on
+    ports: ["5432:5432"]
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brightwater"]
+      interval: 2s
+      retries: 30
+
+  # ---------------------------------------------------------------- later
+  # neo4j-memory:   Ch 1, the agent's memory graph
+  # cube:           Ch 2, the semantic layer
+  # neo4j-aip:      Ch 4, AIP procedure catalog and run history
+  # langfuse:       Ch 3, traces
+  # vllm, tei:      Ch 6-7, private inference
+  # openfga, keycloak, agentgateway, opa:  Ch 8, identity and control plane
+
+volumes:
+  pg-data:

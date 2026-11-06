@@ -1,0 +1,178 @@
+# Six hand-built applicants, one per decision path.
+#
+# Every name and figure here is invented. The generator turns each entry into
+# rows in the five systems of record. Cash flows are derived from
+# `target_dscr`, so the debt service coverage ratio lands where the case needs
+# it no matter how the monthly noise falls.
+#
+# target_dscr is computed on OPERATING cash flow only. `injections` are owner
+# capital injections booked as non-operating inflow; the bank's original DSCR
+# definition (Ch 0) counts them, which Ch 2 uses to show a governed change.
+#
+# `expect` is the contract the Ch 0 proof checks in CI.
+
+as_of: 2026-10-31
+
+bankers:
+  - {banker_id: BKR-01, full_name: Delphine Okafor, email: dokafor@brightwater.example}
+  - {banker_id: BKR-02, full_name: Marcus Velde, email: mvelde@brightwater.example}
+  - {banker_id: BKR-03, full_name: Inez Albright, email: ialbright@brightwater.example}
+  - {banker_id: BKR-04, full_name: Tobias Renn, email: trenn@brightwater.example}
+
+people:
+  - {person_id: PER-H01, full_name: Wren Castellano, date_of_birth: 1979-03-14}
+  - {person_id: PER-H02, full_name: Amos Pettigrew, date_of_birth: 1968-11-02}
+  - {person_id: PER-H03, full_name: Junia Halvorsen, date_of_birth: 1985-06-21}
+  - {person_id: PER-H04, full_name: Desmond Achterberg, date_of_birth: 1974-01-09}
+  - {person_id: PER-H05, full_name: Priya Lindqvist, date_of_birth: 1981-09-30}
+  - {person_id: PER-H06, full_name: Calloway Brisk, date_of_birth: 1966-04-17}
+  - {person_id: PER-H07, full_name: Odessa Varga, date_of_birth: 1959-12-05}
+  - {person_id: PER-H08, full_name: Bartholomew Ystad, date_of_birth: 1957-08-23}
+
+# Businesses that are customers but not applicants. They exist so that facts
+# about an applicant can sit one hop away, in another business.
+affiliates:
+  - business_id: BUS-H90
+    legal_name: Ridgeback Tile Co
+    naics: "238340"
+    state: NC
+    established: 2012-05-01
+    customer_since: 2015-02-10
+    banker_id: BKR-02
+    owners: [{person_id: PER-H05, pct: 35}, {person_id: PER-H07, pct: 65}]
+    facilities:
+      # Three missed payments: about 80 days past due when Northpine applies.
+      - {kind: term, original_amount: 180000, outstanding_balance: 121500, monthly_payment: 3650, opened: 2022-03-01, missed_payments: 3}
+  - business_id: BUS-H91
+    legal_name: Finch Marine Supply LLC
+    naics: "423860"
+    state: SC
+    established: 2010-08-15
+    customer_since: 2013-01-22
+    banker_id: BKR-03
+    owners: [{person_id: PER-H06, pct: 70}, {person_id: PER-H07, pct: 30}]
+    facilities:
+      - {kind: line, original_amount: 600000, outstanding_balance: 500000, monthly_payment: 7200, opened: 2021-07-01}
+  - business_id: BUS-H92
+    legal_name: Harrow Storage LLC
+    naics: "493110"
+    state: SC
+    established: 2016-02-01
+    customer_since: 2016-03-15
+    banker_id: BKR-03
+    owners: [{person_id: PER-H06, pct: 55}, {person_id: PER-H02, pct: 45}]
+    facilities:
+      - {kind: term, original_amount: 350000, outstanding_balance: 280000, monthly_payment: 4100, opened: 2023-01-01}
+
+applicants:
+  - application_id: APP-H1
+    path: clean auto-approve
+    business_id: BUS-H01
+    legal_name: Larkspur Bindery LLC
+    naics: "323120"
+    state: NC
+    established: 2014-09-01
+    customer_since: 2017-04-03
+    banker_id: BKR-01
+    owners: [{person_id: PER-H01, pct: 100}]
+    kyc: {status: current, last_reviewed: 2026-02-11, next_review_due: 2027-02-11}
+    facilities:
+      - {kind: term, original_amount: 150000, outstanding_balance: 92000, monthly_payment: 3000, opened: 2022-06-01}
+    application: {requested_amount: 250000, term_months: 84, annual_rate: 0.085, submitted_on: 2026-10-14, purpose: equipment}
+    target_dscr: 1.18
+    # A one-time owner injection lifts the original DSCR from 1.18 to about 1.33.
+    injections: [{month: 2026-03-01, amount: 12500}]
+    notes:
+      - {banker_id: BKR-01, written_on: 2026-09-30, body: "Owner plans to replace the two oldest folding lines. Seasonal peak runs August through December."}
+    expect: {outcome: approve, fired: [], requires_person: false}
+
+  - application_id: APP-H2
+    path: KYC lapsed, auto-decline
+    business_id: BUS-H02
+    legal_name: Tidewater Signworks Inc
+    naics: "339950"
+    state: NC
+    established: 2011-03-15
+    customer_since: 2019-08-19
+    banker_id: BKR-02
+    owners: [{person_id: PER-H02, pct: 60}, {person_id: PER-H03, pct: 40}]
+    kyc: {status: current, last_reviewed: 2025-06-02, next_review_due: 2026-06-02}
+    facilities: []
+    application: {requested_amount: 120000, term_months: 60, annual_rate: 0.09, submitted_on: 2026-10-06, purpose: working capital}
+    target_dscr: 1.62
+    expect: {outcome: decline, fired: [P1], requires_person: false}
+
+  - application_id: APP-H3
+    path: coverage in the judgment band
+    business_id: BUS-H03
+    legal_name: Cobble Lane Bakery LLC
+    naics: "311811"
+    state: VA
+    established: 2018-01-10
+    customer_since: 2020-05-04
+    banker_id: BKR-01
+    owners: [{person_id: PER-H03, pct: 100}]
+    kyc: {status: current, last_reviewed: 2026-04-20, next_review_due: 2027-04-20}
+    facilities:
+      - {kind: line, original_amount: 60000, outstanding_balance: 41000, monthly_payment: 1400, opened: 2023-09-01}
+    application: {requested_amount: 175000, term_months: 120, annual_rate: 0.0825, submitted_on: 2026-10-21, purpose: second location build-out}
+    target_dscr: 1.17
+    expect: {outcome: review, fired: [P3], requires_person: false}
+
+  - application_id: APP-H4
+    path: co-owner's other business is delinquent
+    business_id: BUS-H04
+    legal_name: Northpine Freight LLC
+    naics: "484121"
+    state: NC
+    established: 2015-07-01
+    customer_since: 2018-02-12
+    banker_id: BKR-02
+    owners: [{person_id: PER-H04, pct: 60}, {person_id: PER-H05, pct: 40}]
+    kyc: {status: current, last_reviewed: 2026-01-08, next_review_due: 2027-01-08}
+    facilities:
+      - {kind: term, original_amount: 400000, outstanding_balance: 210000, monthly_payment: 6800, opened: 2021-11-01}
+    application: {requested_amount: 300000, term_months: 60, annual_rate: 0.0875, submitted_on: 2026-10-20, purpose: two tractors}
+    target_dscr: 1.51
+    notes:
+      - {banker_id: BKR-02, written_on: 2026-10-02, body: "Strong lanes into the port. Priya Lindqvist is also a partner in a tile installer we bank."}
+    expect: {outcome: review, fired: [P5], requires_person: false}
+
+  - application_id: APP-H5
+    path: group exposure over the cap, visible only through the owners
+    business_id: BUS-H05
+    legal_name: Harrow & Finch Outfitters LLC
+    naics: "459110"
+    state: SC
+    established: 2013-04-01
+    customer_since: 2014-10-30
+    banker_id: BKR-03
+    owners: [{person_id: PER-H06, pct: 80}, {person_id: PER-H01, pct: 20}]
+    kyc: {status: current, last_reviewed: 2026-03-03, next_review_due: 2027-03-03}
+    facilities:
+      - {kind: term, original_amount: 400000, outstanding_balance: 250000, monthly_payment: 5600, opened: 2022-02-01}
+    # Alone: 600k requested + 250k owed = 850k, under the 1.5M cap.
+    # Counting the businesses its owners control: + 500k (Finch Marine) +
+    # 280k (Harrow Storage) + 92k (Larkspur, which the 20% owner controls)
+    # = 1.722M, over it.
+    application: {requested_amount: 600000, term_months: 120, annual_rate: 0.08, submitted_on: 2026-10-09, purpose: acquisition of a competitor's inventory}
+    target_dscr: 1.44
+    expect: {outcome: review, fired: [P4], requires_person: false}
+
+  - application_id: APP-H6
+    path: held out; long-tenured customer below the coverage floor
+    held_out: true
+    business_id: BUS-H06
+    legal_name: Saltmarsh Ceramics Co
+    naics: "327110"
+    state: GA
+    established: 2004-02-01
+    customer_since: 2009-06-15
+    banker_id: BKR-04
+    owners: [{person_id: PER-H08, pct: 100}]
+    kyc: {status: current, last_reviewed: 2026-05-18, next_review_due: 2027-05-18}
+    facilities:
+      - {kind: term, original_amount: 220000, outstanding_balance: 64000, monthly_payment: 2900, opened: 2020-09-01}
+    application: {requested_amount: 140000, term_months: 60, annual_rate: 0.09, submitted_on: 2026-10-27, purpose: kiln replacement}
+    target_dscr: 0.96
+    expect: {outcome: decline, fired: [P3, P6], requires_person: true}
