@@ -18,6 +18,15 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U brightwater"
           --health-interval 2s --health-retries 30
+      neo4j:
+        image: neo4j:5.26-community
+        env:
+          NEO4J_AUTH: neo4j/brightwater
+          NEO4J_PLUGINS: '["apoc"]'
+        ports: ["7687:7687"]
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p brightwater 'RETURN 1'"
+          --health-interval 5s --health-retries 40
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7

@@ -44,7 +44,7 @@ All names, businesses and figures are invented.
 | Tag | Chapter | The question it answers |
 |---|---|---|
 | `ch0` | [Systems of record and policy as code](docs/ch0-systems-of-record.md) | Before anything smart touches a decision, what is the referee? |
-| `ch1` | Ontology and the memory graph (coming) | How do you know your systems agree with each other, and how does an agent see across them? |
+| `ch1` | [Ontology and the memory graph](docs/ch1-ontology-and-graph.md) | How do you know your systems agree with each other, and how does an agent see across them? |
 | `ch2` | Semantic layer (coming) | When someone changes what "DSCR" means, what moves, and can you still prove the numbers? |
 | `ch3` | Free-form agent, fully recorded (coming) | Left to itself, what does a capable agent cost, and how consistent is it? |
 | `ch4` | Compile the runs into an AIP procedure (coming) | What changes when the procedure is fixed and the model only judges and writes? |
@@ -120,11 +120,11 @@ Then open [Chapter 0](docs/ch0-systems-of-record.md) and start at **Do it yourse
 
 ## Services by chapter
 
-Services are added through Compose profiles as the chapters need them, so earlier chapters never pay for later ones:
+Services are added through Compose profiles, so earlier chapters never pay for later ones:
 
 | Profile | Adds | From |
 |---|---|---|
-| (default) | Postgres 16 with pgvector and pgaudit | Ch 0 |
+| (default) | Postgres 16 with pgvector and pgaudit; Neo4j Community (memory graph) from Ch 1 | Ch 0 |
 
 ## Layout
 
@@ -132,8 +132,11 @@ Services are added through Compose profiles as the chapters need them, so earlie
 compose.yaml           Postgres (pgvector, pgaudit), Neo4j, Cube; profiles aip and control
 fixture/handbuilt.yaml the six hand-built applicants and their expected outcomes
 schema/postgres/       the five systems of record, and row-level security policies (enabled in Ch 8)
+schema/linkml/         the entity schema
+schema/shacl/          cross-record constraints the schema cannot express
 src/brightwater/       policy, metrics, ontology gate, graph, tools, agent, procedure driver,
                        decision model, netwatch, identity, audit, loop, CLI
+queries/               numbered graph queries used in the text
 tests/                 one proof per chapter
 docs/                  one file per chapter
 ```

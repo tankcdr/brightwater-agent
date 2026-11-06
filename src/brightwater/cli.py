@@ -36,6 +36,12 @@ def cmd_fixture_generate(a: argparse.Namespace) -> None:
     print(f"hand-built: {', '.join(ds.handbuilt_ids)} (held out: {', '.join(ds.held_out_ids)})")
 
 
+def cmd_fixture_break(a: argparse.Namespace) -> None:
+    for line in fixture.break_fixture(Path(a.src), Path(a.out)):
+        print(f"planted registry.ownership row: {line}")
+    print(f"broken copy written to {a.out}")
+
+
 def cmd_db_init(a: argparse.Namespace) -> None:
     from . import db
     with db.session() as conn:
@@ -93,6 +99,29 @@ def cmd_assess(a: argparse.Namespace) -> None:
     print(f"metrics: {results[0]['metrics_backend']}   policy: {results[0]['decision']['policy_version']}")
 
 
+def cmd_graph_validate(a: argparse.Namespace) -> None:
+    from . import ontology
+    report = ontology.validate_dir(Path(a.src))
+    print(report.summary())
+    if not report.conforms:
+        sys.exit(1)
+
+
+def cmd_graph_load(a: argparse.Namespace) -> None:
+    import asyncio
+
+    from . import graph
+    asyncio.run(graph.load(Path(a.src), skip_validation=a.skip_validation))
+
+
+def cmd_graph_query(a: argparse.Namespace) -> None:
+    import asyncio
+
+    from . import graph
+    out = asyncio.run(graph.run_named_query(a.name, a.params))
+    print(json.dumps(out, indent=2, default=str))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="brightwater", description="Brightwater loan assessment tutorial")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -103,6 +132,10 @@ def main(argv: list[str] | None = None) -> None:
     g.add_argument("--n", type=int, default=1200, help="generated applicants (hand-built ones are always added)")
     g.add_argument("--out", default=str(DEFAULT_OUT))
     g.set_defaults(fn=cmd_fixture_generate)
+    br = fx.add_parser("break", help="copy a fixture and plant two cross-record defects (Ch 1 proof)")
+    br.add_argument("--from", dest="src", default=str(DEFAULT_OUT))
+    br.add_argument("--out", default=str(ROOT / "fixture" / "broken"))
+    br.set_defaults(fn=cmd_fixture_break)
 
     dbp = sub.add_parser("db", help="Postgres systems of record").add_subparsers(dest="sub", required=True)
     dbp.add_parser("init", help="create the five schemas and RLS policies").set_defaults(fn=cmd_db_init)
@@ -119,6 +152,19 @@ def main(argv: list[str] | None = None) -> None:
     asp.add_argument("--metrics", choices=["sql"], help="where facts come from (default: $BRIGHTWATER_METRICS or sql)")
     asp.add_argument("--json", action="store_true")
     asp.set_defaults(fn=cmd_assess)
+
+    gr = sub.add_parser("graph", help="ontology and memory graph").add_subparsers(dest="sub", required=True)
+    v = gr.add_parser("validate", help="SHACL-validate a fixture directory")
+    v.add_argument("--from", dest="src", default=str(DEFAULT_OUT))
+    v.set_defaults(fn=cmd_graph_validate)
+    gl = gr.add_parser("load", help="validate, then load entities and typed edges into Neo4j")
+    gl.add_argument("--from", dest="src", default=str(DEFAULT_OUT))
+    gl.add_argument("--skip-validation", action="store_true", help="for demonstrating why you should not")
+    gl.set_defaults(fn=cmd_graph_load)
+    gq = gr.add_parser("query", help="run a numbered query from queries/")
+    gq.add_argument("name")
+    gq.add_argument("--param", dest="params", action="append", default=[], metavar="KEY=VALUE")
+    gq.set_defaults(fn=cmd_graph_query)
 
     a = p.parse_args(argv)
     a.fn(a)

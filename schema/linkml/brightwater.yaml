@@ -1,0 +1,127 @@
+id: https://brightwater.example/schema
+name: brightwater
+title: Brightwater Community Bank entity model
+description: >-
+  The entities the loan assessment agent reasons about, independent of which
+  system of record holds them. One schema drives three things: the SHACL
+  shapes that gate every import into the memory graph, the node labels and
+  edge types the importer writes, and (from Ch 3) the vocabulary the agent's
+  tools return.
+license: Apache-2.0
+version: 1.0.0
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  bw: https://brightwater.example/schema/
+  schema: http://schema.org/
+default_prefix: bw
+default_range: string
+imports:
+  - linkml:types
+
+enums:
+  FacilityKind:
+    permissible_values:
+      term: {description: Amortizing term loan}
+      line: {description: Revolving line of credit}
+  KycStatus:
+    permissible_values:
+      current:
+      lapsed:
+      pending:
+
+slots:
+  id:
+    identifier: true
+    range: string
+  business:
+    range: Business
+    required: true
+    description: The business this record belongs to.
+  amount:
+    range: decimal
+    minimum_value: 0
+
+classes:
+  Bank:
+    tree_root: true
+    description: Container for one import batch.
+    attributes:
+      businesses: {range: Business, multivalued: true, inlined_as_list: true}
+      people: {range: Person, multivalued: true, inlined_as_list: true}
+      ownerships: {range: Ownership, multivalued: true, inlined_as_list: true}
+      facilities: {range: Facility, multivalued: true, inlined_as_list: true}
+      payments: {range: Payment, multivalued: true, inlined_as_list: true}
+      applications: {range: Application, multivalued: true, inlined_as_list: true}
+      kyc_reviews: {range: KycReview, multivalued: true, inlined_as_list: true}
+      adverse_events: {range: AdverseEvent, multivalued: true, inlined_as_list: true}
+
+  Business:
+    class_uri: schema:Organization
+    description: A bank customer. Applicants and their affiliates are both businesses.
+    slots: [id]
+    attributes:
+      legal_name: {required: true}
+      naics: {required: true, pattern: "^[0-9]{6}$"}
+      state: {required: true, pattern: "^[A-Z]{2}$"}
+      established: {range: date, required: true}
+      customer_since: {range: date, required: true}
+
+  Person:
+    class_uri: schema:Person
+    slots: [id]
+    attributes:
+      full_name: {required: true}
+      date_of_birth: {range: date, required: true}
+
+  Ownership:
+    description: >-
+      A person's stake in a business. Modelled as its own class, not a bare
+      edge, because the percentage is the fact that matters: "owns" without
+      "how much" cannot answer control or beneficial-owner questions.
+    attributes:
+      owner: {range: Person, required: true}
+      business: {range: Business, required: true}
+      pct: {range: decimal, required: true, minimum_value: 0.01, maximum_value: 100}
+
+  Facility:
+    description: A credit facility (term loan or line) the bank has extended.
+    slots: [id, business]
+    attributes:
+      kind: {range: FacilityKind, required: true}
+      opened: {range: date, required: true}
+      original_amount: {range: decimal, required: true, minimum_value: 0}
+      outstanding_balance: {range: decimal, required: true, minimum_value: 0}
+      monthly_payment: {range: decimal, required: true, minimum_value: 0}
+
+  Payment:
+    description: One scheduled payment on a facility.
+    attributes:
+      facility: {range: Facility, required: true}
+      due_date: {range: date, required: true}
+      amount_due: {range: decimal, required: true, minimum_value: 0}
+      paid_date: {range: date}
+      amount_paid: {range: decimal, minimum_value: 0}
+
+  Application:
+    slots: [id, business]
+    attributes:
+      requested_amount: {range: decimal, required: true, minimum_value: 1}
+      term_months: {range: integer, required: true, minimum_value: 1, maximum_value: 360}
+      annual_rate: {range: decimal, required: true, minimum_value: 0, maximum_value: 1}
+      submitted_on: {range: date, required: true}
+      purpose: {required: true}
+
+  KycReview:
+    slots: [business]
+    attributes:
+      status: {range: KycStatus, required: true}
+      last_reviewed: {range: date, required: true}
+      next_review_due: {range: date, required: true}
+
+  AdverseEvent:
+    slots: [id, business]
+    attributes:
+      occurred_on: {range: date, required: true}
+      kind: {required: true}
+      summary: {required: true}

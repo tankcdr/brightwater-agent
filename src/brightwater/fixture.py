@@ -468,3 +468,28 @@ def build(seed: int = 7, n: int = 1200, handbuilt: Path = DEFAULT_HANDBUILT) -> 
 def load_expectations(handbuilt: Path = DEFAULT_HANDBUILT) -> dict[str, dict[str, Any]]:
     spec = yaml.safe_load(handbuilt.read_text())
     return {a["application_id"]: a["expect"] for a in spec["applicants"]}
+
+
+def break_fixture(src: Path, out: Path) -> list[str]:
+    """Copy a fixture and plant two defects that only a cross-record check can see.
+
+    1. A stake held in a business that no system of record knows about.
+    2. A second owner of Larkspur Bindery, pushing its stakes to 135%.
+
+    Postgres would accept both rows: registry.ownership has no foreign key to
+    ledger.business (different system), and no constraint sums stakes. The Ch 1
+    SHACL gate rejects the batch.
+    """
+    import shutil
+
+    out.mkdir(parents=True, exist_ok=True)
+    for f in src.glob("*.csv"):
+        shutil.copyfile(f, out / f.name)
+    planted = [
+        "PER-H01,BUS-99999,30.00",   # dangling: BUS-99999 does not exist
+        "PER-H02,BUS-H01,35.00",     # over-allocated: BUS-H01 is already 100% owned
+    ]
+    with (out / "registry.ownership.csv").open("a", encoding="utf-8") as f:
+        for line in planted:
+            f.write(line + "\n")
+    return planted

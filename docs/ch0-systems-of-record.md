@@ -254,4 +254,4 @@ Postgres accepts it, because no foreign key crosses a schema. Chapter 1 adds the
 
 The engine is boring on purpose. It is the fixed point against which the agent in Chapter 3, the procedure in Chapter 4 and the decision model in Chapter 6 are all measured. The next two chapters fix the two weaknesses this chapter leaves in place: nothing checks that the five systems agree with each other, and the definition of every number lives in a SQL string that nobody else can see.
 
-**Next:** Chapter 1. Ontology and the memory graph
+**Next:** [Chapter 1. Ontology and the memory graph](ch1-ontology-and-graph.md)

@@ -1,0 +1,43 @@
+# Constraints the LinkML schema cannot express on its own.
+#
+# The shapes generated from schema/linkml/brightwater.yaml check each record
+# in isolation: types, required fields, ranges, and that a reference points at
+# a node of the right class. These two look across records, which is exactly
+# where bad data in a bank tends to hide.
+
+@prefix sh:     <http://www.w3.org/ns/shacl#> .
+@prefix bw:     <https://brightwater.example/schema/> .
+@prefix schema: <http://schema.org/> .
+
+bw:OwnershipTotalShape
+    a sh:NodeShape ;
+    sh:targetClass schema:Organization ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Ownership stakes in this business add up to {?total}%, more than 100%." ;
+        sh:select """
+            SELECT $this (SUM(?pct) AS ?total)
+            WHERE {
+                ?stake <https://brightwater.example/schema/business> $this ;
+                       <https://brightwater.example/schema/pct> ?pct .
+            }
+            GROUP BY $this
+            HAVING (SUM(?pct) > 100)
+        """ ;
+    ] .
+
+bw:FacilityBalanceShape
+    a sh:NodeShape ;
+    sh:targetClass bw:Facility ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Outstanding balance {?balance} exceeds the original amount {?original}." ;
+        sh:select """
+            SELECT $this ?balance ?original
+            WHERE {
+                $this <https://brightwater.example/schema/outstanding_balance> ?balance ;
+                      <https://brightwater.example/schema/original_amount> ?original .
+                FILTER (?balance > ?original)
+            }
+        """ ;
+    ] .

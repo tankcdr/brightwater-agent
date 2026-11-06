@@ -2,6 +2,7 @@
 # the commented blocks at the bottom arrive in later chapters.
 #
 #   docker compose up -d postgres            # Ch 0
+#   docker compose up -d postgres neo4j-memory  # Ch 1
 
 name: brightwater
 
@@ -35,8 +36,22 @@ services:
       interval: 2s
       retries: 30
 
+  neo4j-memory:
+    # The agent's memory graph (Ch 1). Community edition has one user database
+    # per server, so the AIP catalog gets its own container in Ch 4.
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/brightwater
+      NEO4J_PLUGINS: '["apoc"]'
+    ports: ["7474:7474", "7687:7687"]
+    volumes:
+      - neo4j-memory-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p brightwater 'RETURN 1' || exit 1"]
+      interval: 5s
+      retries: 30
+
   # ---------------------------------------------------------------- later
-  # neo4j-memory:   Ch 1, the agent's memory graph
   # cube:           Ch 2, the semantic layer
   # neo4j-aip:      Ch 4, AIP procedure catalog and run history
   # langfuse:       Ch 3, traces
@@ -45,3 +60,4 @@ services:
 
 volumes:
   pg-data:
+  neo4j-memory-data:
