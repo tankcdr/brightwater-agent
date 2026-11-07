@@ -181,6 +181,36 @@ def cmd_agent_run(a: argparse.Namespace) -> None:
                   f"tools {'>'.join(ctx.tool_calls)}" + (f"  {row['wall_s']}s ${row['cost_usd'] or 0:.4f}" if row else ""))
 
 
+def _answerer(name: str | None):
+    from . import agent, procedure
+    name = name or agent.default_model()
+    if name == "scripted":
+        return procedure.ScriptedAnswerer()
+    return procedure.ModelAnswerer(agent.chat_model(name), name)
+
+
+def cmd_procedure_run(a: argparse.Namespace) -> None:
+    from . import bench, procedure
+    person = procedure.auto_person(a.auto_confirm) if a.auto_confirm else procedure.console_person
+    for app_id in _app_ids(a):
+        for i in range(a.repeat):
+            r = procedure.run(app_id, _answerer(a.model), person, configuration=a.configuration,
+                              skill=a.skill)
+            row = None
+            if a.model != "scripted" or a.record:
+                row = bench.record(r.ctx, extra={"aip_run_id": r.aip_run_id, "human_pauses": r.human_pauses,
+                                                 "decision_pauses": r.decision_pauses})
+            d = r.ctx.decision or {"outcome": "NOT FILED", "status": "-"}
+            print(f"{app_id} run {i + 1}: {d['outcome']:<8} {d['status']:<15} aip {r.aip_run_id}  "
+                  f"steps {'>'.join(r.steps)}" + (f"  {row['wall_s']}s" if row else ""))
+
+
+def cmd_procedure_build(a: argparse.Namespace) -> None:
+    from . import procedure
+    for p in procedure.build():
+        print(f"wrote {p}")
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -261,6 +291,22 @@ def main(argv: list[str] | None = None) -> None:
     ar.add_argument("--no-memory", action="store_true", help="skip the Neo4j memory middleware and trace")
     ar.add_argument("--record", action="store_true", help="also record scripted runs in results/runs.jsonl")
     ar.set_defaults(fn=cmd_agent_run)
+
+    pr = sub.add_parser("procedure", help="the compiled AIP procedure (Ch 4 onward)").add_subparsers(dest="sub", required=True)
+    pb = pr.add_parser("build", help="refresh the skill's policy asset and source material from the repo")
+    pb.set_defaults(fn=cmd_procedure_build)
+    pr.add_parser("export-traces", help="summarize recorded Ch 3 runs into the skill's source/").set_defaults(
+        fn=lambda a: print(__import__("brightwater.procedure", fromlist=["x"]).export_traces()))
+    prr = pr.add_parser("run", help="run the procedure on applications, recording every run")
+    prr.add_argument("application_ids", nargs="*")
+    prr.add_argument("--handbuilt", action="store_true")
+    prr.add_argument("--repeat", type=int, default=1)
+    prr.add_argument("--model", help="driving model id, or 'scripted' (default $BRIGHTWATER_DRIVER_MODEL)")
+    prr.add_argument("--configuration", default="ch4-procedure")
+    prr.add_argument("--skill", help="a skill folder or published name[@revision] (default: the server's, else the repo folder)")
+    prr.add_argument("--auto-confirm", metavar="USER", help="answer person-only steps as USER (tests and demos only)")
+    prr.add_argument("--record", action="store_true", help="also record scripted runs")
+    prr.set_defaults(fn=cmd_procedure_run)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

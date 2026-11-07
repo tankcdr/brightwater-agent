@@ -2,7 +2,7 @@
 
 Everything in this repo has a test that runs without services or model APIs (`pytest`, using
 the scripted driver). The live proofs below are the ones that need
-Docker or a model API key. Run them in order; each step says what to
+Docker, a model API key or a person. Run them in order; each step says what to
 save under `results/live/` so the write-ups can quote real output.
 
 Target machine: any machine with Docker, [uv](https://docs.astral.sh/uv/),
@@ -11,10 +11,11 @@ and `ANTHROPIC_API_KEY` in the environment.
 ## 0. Setup
 
 ```bash
-uv venv && source .venv/bin/activate
+uv venv -p 3.14 && source .venv/bin/activate      # AIP 0.7.0 requires Python 3.14
 uv pip install -e ".[dev]"
 mkdir -p results/live
 docker compose up -d --wait                                # Postgres, Neo4j (memory), Cube
+docker compose --profile aip up -d --wait --build          # Neo4j (AIP), AIP server
 brightwater fixture generate && brightwater db init && brightwater db load && brightwater policy sync
 brightwater semantic build
 pytest -q 2>&1 | tee results/live/pytest.txt        # expect 0 failed, 0 skipped (Neo4j is up now)
@@ -38,9 +39,28 @@ export LANGFUSE_HOST=http://localhost:3000 LANGFUSE_PUBLIC_KEY=pk-lf-brightwater
 brightwater agent run --handbuilt --repeat 3 | tee results/live/ch3-runs.txt     # claude-opus-5-5 by default
 brightwater graph query 03 --param app=APP-H4 | tee results/live/ch3-step-orders.json
 brightwater results table
+brightwater procedure export-traces            # writes results/traces.md
 ```
 
+Then read `results/traces.md` against the procedure: if the live runs did something every time that the
+procedure does not (or a recurring mistake the linter misses), report it rather than editing the skill.
+
 Langfuse UI: http://localhost:3000 (reader@brightwater.example / brightwater-local).
+
+## Ch 4. The compiled procedure
+
+```bash
+aip config --server http://localhost:8000 --token brightwater-aip-local
+aip publish skills/brightwater-loan-assessment | tee results/live/ch4-publish-r1.txt
+R1=$(aip list | awk '/brightwater-loan-assessment/{print $2}')
+brightwater procedure run --handbuilt --repeat 3 --skill brightwater-loan-assessment@$R1 \
+    --auto-confirm chris | tee results/live/ch4-runs.txt
+brightwater graph query 03 --param app=APP-H4 | tee results/live/ch4-step-orders.json
+brightwater results table
+```
+
+`--auto-confirm` answers the P6 confirmation as you, so the timing runs are unattended. Run APP-H6
+once more without it to answer the confirmation yourself.
 
 ## Finally
 

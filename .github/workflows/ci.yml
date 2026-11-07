@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv venv -p 3.12 && uv pip install -e ".[dev]"
+      - run: uv venv -p 3.14 && uv pip install -e ".[dev]"
 
       # Ch 0: deterministic fixture and the policy proofs.
       - run: uv run brightwater fixture generate
@@ -47,5 +47,8 @@ jobs:
             -e CUBEJS_DEV_MODE=true -e CUBEJS_API_SECRET=brightwater-dev-secret \
             cubejs/cube:v1.6.77
           for i in $(seq 1 60); do curl -sf localhost:4000/readyz && break; sleep 2; done
+
+      # Ch 4: the skill must validate.
+      - run: uv run aip-spec validate skills/brightwater-loan-assessment
 
       - run: uv run pytest -v

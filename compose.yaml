@@ -1,9 +1,7 @@
-# Services for the tutorial. Each chapter tag enables only what it uses;
-# the commented blocks at the bottom arrive in later chapters.
+# Services for the tutorial. Profiles add each chapter's services:
 #
-#   docker compose up -d postgres            # Ch 0
-#   docker compose up -d postgres neo4j-memory  # Ch 1
-#   docker compose up -d                     # Ch 2 (adds Cube)
+#   docker compose up -d                      # Ch 0-2: Postgres, Neo4j (memory), Cube
+#   docker compose --profile aip up -d        # Ch 4+: Neo4j (AIP catalog) and the AIP server
 #
 # Langfuse (Ch 3) is its own project:
 #   docker compose -p langfuse -f docker/langfuse/docker-compose.yml --env-file docker/langfuse/langfuse.env up -d
@@ -12,7 +10,7 @@ name: brightwater
 
 services:
   postgres:
-    # postgres:16 plus pgvector (embeddings, later) and pgaudit (read audit, now).
+    # postgres:16 plus pgvector and pgaudit.
     build: docker/postgres
     image: brightwater/postgres:16
     environment:
@@ -41,8 +39,7 @@ services:
       retries: 30
 
   neo4j-memory:
-    # The agent's memory graph (Ch 1). Community edition has one user database
-    # per server, so the AIP catalog gets its own container in Ch 4.
+    # The agent's memory graph (Ch 1). Community edition has one user database per server.
     image: neo4j:5.26-community
     environment:
       NEO4J_AUTH: neo4j/brightwater
@@ -56,8 +53,7 @@ services:
       retries: 30
 
   cube:
-    # Cube Core (Apache-2.0). The model files it serves are compiled from
-    # semantic/brightwater.ossie.yaml by `brightwater semantic build` (Ch 2).
+    # Cube Core (Apache-2.0), serving the model compiled from semantic/brightwater.ossie.yaml.
     image: cubejs/cube:v1.6.77
     depends_on:
       postgres: {condition: service_healthy}
@@ -67,17 +63,43 @@ services:
       CUBEJS_DB_NAME: brightwater
       CUBEJS_DB_USER: brightwater
       CUBEJS_DB_PASS: brightwater
-      CUBEJS_DEV_MODE: "true"        # hot-reloads model files; Ch 8 turns this off
+      CUBEJS_DEV_MODE: "true"
       CUBEJS_API_SECRET: brightwater-dev-secret
     ports: ["4000:4000"]
     volumes:
       - ./semantic/cube:/cube/conf
 
+  # ---------------------------------------------------------------- Ch 4: AIP
+  neo4j-aip:
+    # The AIP catalog and run history: a second Neo4j, since Community has one user database.
+    profiles: [aip]
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/brightwater
+    ports: ["7475:7474", "7688:7687"]
+    volumes:
+      - neo4j-aip-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p brightwater 'RETURN 1' || exit 1"]
+      interval: 5s
+      retries: 30
+
+  aip-server:
+    # `aip server` on the Neo4j backend.
+    profiles: [aip]
+    build: {context: ., dockerfile: docker/brightwater/Dockerfile}
+    image: brightwater/app:latest
+    depends_on:
+      neo4j-aip: {condition: service_healthy}
+    command: [server, --backend, neo4j, --uri, "bolt://neo4j-aip:7687", --user, neo4j,
+              --password, brightwater, --host, 0.0.0.0, --port, "8000", --token, brightwater-aip-local]
+    ports: ["8000:8000"]
+
   # ---------------------------------------------------------------- later
-  # neo4j-aip:      Ch 4, AIP procedure catalog and run history
   # vllm, tei:      Ch 6-7, private inference
   # openfga, keycloak, agentgateway, opa:  Ch 8, identity and control plane
 
 volumes:
   pg-data:
   neo4j-memory-data:
+  neo4j-aip-data:

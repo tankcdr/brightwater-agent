@@ -50,7 +50,7 @@ def expected(application_id: str) -> policy.Decision:
 
 def record(ctx: Any, spans_path: Path | None = None, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     spans = tracing.read_spans(spans_path or tracing.spans_file(), ctx.trace_id or "")
-    root = next((s for s in spans if s["name"].startswith("invoke_agent")), None)
+    root = next((s for s in spans if s["name"].startswith("invoke_agent") or s["name"].startswith("run_procedure")), None)
     chats = [s for s in spans if s["attributes"].get("gen_ai.operation.name") == "chat"]
     tin = sum(int(s["attributes"].get("gen_ai.usage.input_tokens", 0)) for s in chats)
     tout = sum(int(s["attributes"].get("gen_ai.usage.output_tokens", 0)) for s in chats)
@@ -102,6 +102,7 @@ def table(runs_path: Path = RUNS, out: Path = TABLE) -> str:
         ("Linter first-pass rate", lambda rs: f"{sum(r['lint_rejections'] == 0 for r in rs if r['outcome'])}/"
                                               f"{sum(1 for r in rs if r['outcome'])}"),
         ("Run-to-run consistency (same steps, same records read)", _consistency),
+        ("Human pauses", lambda rs: str(sum(int(r.get("human_pauses", 0)) for r in rs))),
     ]
     lines = ["| Metric | " + " | ".join(confs) + " |", "|---|" + "---|" * len(confs)]
     for name, fn in metrics:

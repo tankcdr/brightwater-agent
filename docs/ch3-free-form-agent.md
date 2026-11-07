@@ -292,4 +292,4 @@ The scripted analyst is deliberately thin, but a real model can make the same om
 
 The agent can be right, and every run can be audited after the fact. What it cannot be is predictable: the order of work, the records consulted and the rationale's sources vary run to run, and every run pays frontier prices to rediscover the same procedure. Chapter 4 takes these recordings, the SOP and the policy, and compiles them into a procedure that a smaller, cheaper driver follows step by step.
 
-**Previous:** [Chapter 2](ch2-semantic-layer.md) · **Next:** Chapter 4. Compile the runs into an AIP procedure
+**Previous:** [Chapter 2](ch2-semantic-layer.md) · **Next:** [Chapter 4. Compile the runs into an AIP procedure](ch4-compiled-procedure.md)

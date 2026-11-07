@@ -31,3 +31,10 @@ def loaded_db(fixture_dir: Path):
 @pytest.fixture(scope="session")
 def expectations() -> dict:
     return fixture.load_expectations()
+
+
+@pytest.fixture(autouse=True)
+def _no_memory_traces(monkeypatch):
+    """Tests do not write reasoning traces to the memory graph unless they ask to, so a test run
+    leaves nothing behind for query 03 to pick up beside your own runs."""
+    monkeypatch.setenv("BRIGHTWATER_MEMORY", "off")

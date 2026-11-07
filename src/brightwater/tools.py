@@ -59,6 +59,7 @@ class RunContext:
     lint_rejections: int = 0
     lint_messages: list[str] = field(default_factory=list)
     decision: dict[str, Any] | None = None
+    assessment: dict[str, Any] | None = None
 
     def saw(self, *keys: str) -> None:
         self.records.update(keys)
@@ -202,7 +203,8 @@ def get_policy(ctx: RunContext, rules: tuple[policy.Rule, ...] = policy.RULES) -
 
 
 def file_decision(ctx: RunContext, application_id: str, outcome: str, rationale: str, requires_person: bool,
-                  assessment: dict[str, Any] | None = None, b: Backends = BACKENDS) -> dict[str, Any]:
+                  assessment: dict[str, Any] | None = None, answered_by: str | None = None,
+                  b: Backends = BACKENDS) -> dict[str, Any]:
     """File the decision. Rejected, with reasons, if the rationale fails the linter."""
     outcome = outcome.strip().lower()
     if outcome not in ("approve", "review", "decline"):
@@ -217,7 +219,7 @@ def file_decision(ctx: RunContext, application_id: str, outcome: str, rationale:
            "status": "pending_person" if requires_person else "filed", "requires_person": bool(requires_person),
            "rationale": rationale, "cited_records": linter.cited(rationale), "assessment": assessment,
            "configuration": ctx.configuration, "run_id": ctx.run_id, "trace_id": ctx.trace_id,
-           "answered_by": f"agent:{ctx.model}", "semantic_version": semantic_version(),
+           "answered_by": answered_by or f"agent:{ctx.model}", "semantic_version": semantic_version(),
            "policy_version": policy.policy_version(), "records_read": sorted(ctx.records)}
     decision_id = b.file(row)
     ctx.decision = {**row, "decision_id": decision_id}

@@ -227,3 +227,25 @@ def evaluate(facts: Facts, rules: tuple[Rule, ...] = RULES) -> Decision:
         fired=tuple(fired),
         policy_version=policy_version(rules),
     )
+
+
+def facts_from_dict(d: dict[str, Any]) -> Facts:
+    """Rebuild Facts from `Facts.to_dict()` output (as procedure state carries it)."""
+    return Facts(
+        application_id=d["application_id"],
+        kyc_current=bool(d["kyc_current"]),
+        days_since_last_adverse_event=d["days_since_last_adverse_event"],
+        dscr=Decimal(str(d["dscr"])),
+        group_exposure=Decimal(str(d["group_exposure"])),
+        related_facilities=tuple(RelatedFacility(r["facility_id"], r["business_id"], Decimal(str(r["owner_stake_pct"])),
+                                                 int(r["days_past_due"])) for r in d["related_facilities"]),
+        tenure_years=Decimal(str(d["tenure_years"])),
+    )
+
+
+def rules_to_json(rules: tuple[Rule, ...] = RULES) -> list[dict[str, Any]]:
+    return [asdict(r) for r in rules]
+
+
+def rules_from_json(items: list[dict[str, Any]]) -> tuple[Rule, ...]:
+    return tuple(Rule(**r) for r in items)

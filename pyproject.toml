@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Tutorial: a governed small-business loan assessment agent on an open source intelligence stack"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.11"
+requires-python = ">=3.14"  # AIP 0.7.0 requires 3.14
 # Every runtime dependency is MIT, Apache-2.0, BSD or PostgreSQL licensed.
 # Versions are pinned per chapter tag; see docs/ for why each one is here.
 dependencies = [
@@ -23,6 +23,9 @@ dependencies = [
     "openai>=2.0,<4",          # Apache-2.0, OpenAI-compatible embeddings for neo4j-agent-memory (Ch 7)
     "opentelemetry-sdk==1.45.2",                 # Apache-2.0
     "opentelemetry-exporter-otlp-proto-http==1.45.2",  # Apache-2.0, to Langfuse
+    # Ch 4 onward
+    "agent-instruction-protocol[server]==0.7.0", # Apache-2.0
+    "aip-spec==0.7.0",         # Apache-2.0
 ]
 
 [project.optional-dependencies]

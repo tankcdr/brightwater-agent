@@ -1,0 +1,56 @@
+[
+  {
+    "rule_id": "P1",
+    "version": 1,
+    "title": "KYC must be current",
+    "text": "The applicant's KYC review must be current on the application date, else decline.",
+    "params": {}
+  },
+  {
+    "rule_id": "P2",
+    "version": 1,
+    "title": "No recent adverse events",
+    "text": "No adverse event recorded against the applicant in the 365 days before the application date, else decline.",
+    "params": {
+      "lookback_days": 365
+    }
+  },
+  {
+    "rule_id": "P3",
+    "version": 1,
+    "title": "Debt service coverage",
+    "text": "DSCR at or above the approve line stands. Inside the judgment band it goes to review. Below the floor it declines.",
+    "params": {
+      "approve_line": "1.25",
+      "floor": "1.10"
+    }
+  },
+  {
+    "rule_id": "P4",
+    "version": 1,
+    "title": "Group exposure cap",
+    "text": "Group exposure (the applicant plus businesses its owners control) must stay under the cap, else review.",
+    "params": {
+      "cap": "1500000"
+    }
+  },
+  {
+    "rule_id": "P5",
+    "version": 1,
+    "title": "Related delinquency blocks auto-approval",
+    "text": "Any facility 60 or more days past due at a business where an owner of the applicant holds 25% or more blocks auto-approval.",
+    "params": {
+      "days_past_due": 60,
+      "owner_stake_pct": "25"
+    }
+  },
+  {
+    "rule_id": "P6",
+    "version": 1,
+    "title": "Long-tenured declines need a person",
+    "text": "Declining a customer of 10 or more years requires a person to confirm before the decision is filed.",
+    "params": {
+      "tenure_years": 10
+    }
+  }
+]

@@ -5,9 +5,11 @@ __pycache__/
 fixture/out/
 semantic/cube/.cubestore/
 fixture/broken/
+.venv314/
 results/spans/
 results/runs.jsonl
 results/RESULTS.md
+results/traces.md
 .env
 # Your own run of the live proofs (RUNBOOK.md); the chapter docs quote the reference numbers.
 results/live/

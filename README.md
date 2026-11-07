@@ -47,7 +47,7 @@ All names, businesses and figures are invented.
 | `ch1` | [Ontology and the memory graph](docs/ch1-ontology-and-graph.md) | How do you know your systems agree with each other, and how does an agent see across them? |
 | `ch2` | [Semantic layer](docs/ch2-semantic-layer.md) | When someone changes what "DSCR" means, what moves, and can you still prove the numbers? |
 | `ch3` | [Free-form agent, fully recorded](docs/ch3-free-form-agent.md) | Left to itself, what does a capable agent cost, and how consistent is it? |
-| `ch4` | Compile the runs into an AIP procedure (coming) | What changes when the procedure is fixed and the model only judges and writes? |
+| `ch4` | [Compile the runs into an AIP procedure](docs/ch4-compiled-procedure.md) | What changes when the procedure is fixed and the model only judges and writes? |
 | `ch5` | A governed policy change (coming) | When the policy changes, who is affected, and can you prove what the old rules were? |
 | `ch6` | Own the decision model (coming) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
 | `ch7` | Private inference end to end (coming) | Can the whole thing run without data leaving the machine, and how would you prove it? |
@@ -129,6 +129,7 @@ Services are added through Compose profiles, so earlier chapters never pay for l
 | Profile | Adds | From |
 |---|---|---|
 | (default) | Postgres 16 with pgvector and pgaudit; Neo4j Community (memory graph) from Ch 1; Cube Core from Ch 2 | Ch 0 |
+| `aip` | a second Neo4j for AIP's run history, and the AIP server | Ch 4 |
 
 Langfuse (Ch 3, optional) runs from its own vendored compose file in `docker/langfuse/`.
 
@@ -144,6 +145,7 @@ semantic/              the Apache Ossie model, the vendored spec schema, generat
 src/brightwater/       policy, metrics, ontology gate, graph, tools, agent, procedure driver,
                        decision model, netwatch, identity, audit, loop, CLI
 skills/                the compiled AIP procedure (current revision), its sources, and revision 1
+decision_model/        rubric, MLX-LM training script, model registry
 results/               prices, run records and the computed results table
 queries/               numbered graph queries used in the text
 tests/                 one proof per chapter
