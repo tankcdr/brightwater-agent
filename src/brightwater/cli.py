@@ -325,6 +325,11 @@ def cmd_audit(a: argparse.Namespace) -> None:
         sys.exit(4)
 
 
+def cmd_dm_cycle(a: argparse.Namespace) -> None:
+    from . import loop
+    print(json.dumps(loop.cycle(loop.mlx_trainer, loop.mlx_server, limit=a.limit), indent=2))
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -456,6 +461,10 @@ def main(argv: list[str] | None = None) -> None:
     de.add_argument("--repeats", type=int, default=3)
     de.add_argument("--limit", type=int)
     de.set_defaults(fn=cmd_dm)
+
+    dcy = dmp.add_parser("cycle", help="retrain on new review answers, evaluate, promote or reject (Ch 10)")
+    dcy.add_argument("--limit", type=int)
+    dcy.set_defaults(fn=cmd_dm_cycle)
 
     asv = sub.add_parser("aip-server", help="`aip server` with the resolver patch applied (Ch 6)")
     asv.add_argument("args", nargs=argparse.REMAINDER)

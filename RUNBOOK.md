@@ -136,6 +136,15 @@ brightwater audit --query under-threshold | tee results/live/ch9-under-threshold
 brightwater audit --query overridden | tee results/live/ch9-overridden.json
 ```
 
+## Ch 10. Close the loop
+
+```bash
+brightwater dm cycle | tee results/live/ch10-cycle.json
+cat decision_model/registry.jsonl | tee results/live/ch10-registry.jsonl
+```
+
+Schedule it weekly with `ops/launchd/com.longrunadvisory.brightwater.dm-cycle.plist`.
+
 ## Finally
 
 ```bash

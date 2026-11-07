@@ -13,6 +13,7 @@ results/RESULTS.md
 results/traces.md
 decision_model/data/
 decision_model/artifacts/
+decision_model/registry.jsonl
 .env
 # Your own run of the live proofs (RUNBOOK.md); the chapter docs quote the reference numbers.
 results/live/

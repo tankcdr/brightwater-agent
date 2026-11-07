@@ -53,7 +53,7 @@ All names, businesses and figures are invented.
 | `ch7` | [Private inference end to end](docs/ch7-private-inference.md) | Can the whole thing run without data leaving the machine, and how would you prove it? |
 | `ch8` | [Identity, entitlements and the control plane](docs/ch8-identity-and-control-plane.md) | Who is allowed to make this decision, and what stops everyone else? |
 | `ch9` | [The audit packet](docs/ch9-audit-packet.md) | Given only a decision id, can you reconstruct everything, and tell if anyone changed it? |
-| `ch10` | Close the loop (coming) | How does the model learn from human reviews without quietly getting worse? |
+| `ch10` | [Close the loop](docs/ch10-close-the-loop.md) | How does the model learn from human reviews without quietly getting worse? |
 
 ## What you end up with
 

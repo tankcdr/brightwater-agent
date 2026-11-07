@@ -394,4 +394,4 @@ Undo it: `git checkout src/ && brightwater policy sync`.
 
 Any decision can now be handed to an examiner as one document, and the document proves it has not changed since the decision was filed. Two of its fields matter for the last chapter: who answered the judgment, down to the model version, and whether a person reviewed or overrode that answer. The people who review the model's unsure answers are producing the best labels the bank has. Chapter 10 feeds them back into the model, on a schedule, under a rule that decides whether the new model is allowed to replace the old one.
 
-**Previous:** [Chapter 8](ch8-identity-and-control-plane.md) · **Next:** Chapter 10. Close the loop
+**Previous:** [Chapter 8](ch8-identity-and-control-plane.md) · **Next:** [Chapter 10. Close the loop](ch10-close-the-loop.md)

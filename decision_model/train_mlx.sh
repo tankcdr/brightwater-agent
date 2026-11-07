@@ -30,7 +30,9 @@ digest = hashlib.sha256(w[0].read_bytes()).hexdigest()[:12] if w else "untrained
 meta = json.dumps({
     "base": "$BASE", "adapters": "adapters/adapters.safetensors", "served_name": "default_model",
     "version": f"brightwater-dm@{digest}", "trained_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, indent=2)
-(art / "model.json").write_text(meta)
+(out / "model.json").write_text(meta)            # always: the candidate's own record
+if out.resolve() == (art / "adapters").resolve():
+    (art / "model.json").write_text(meta)        # only the live folder (Ch 6) updates what production reports
 print("model version", f"brightwater-dm@{digest}")
 PY
     ;;
