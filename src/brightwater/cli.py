@@ -272,6 +272,12 @@ def cmd_aip_server(a: argparse.Namespace) -> None:
     aip_patch.serve(a.args)
 
 
+def cmd_netwatch(a: argparse.Namespace) -> None:
+    from . import netwatch
+    cmd = a.command[1:] if a.command and a.command[0] == "--" else a.command
+    sys.exit(netwatch.run(cmd))
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -407,6 +413,10 @@ def main(argv: list[str] | None = None) -> None:
     asv = sub.add_parser("aip-server", help="`aip server` with the resolver patch applied (Ch 6)")
     asv.add_argument("args", nargs=argparse.REMAINDER)
     asv.set_defaults(fn=cmd_aip_server)
+
+    nw = sub.add_parser("netwatch", help="run a command with no API keys and record every remote endpoint (Ch 7)")
+    nw.add_argument("command", nargs=argparse.REMAINDER)
+    nw.set_defaults(fn=cmd_netwatch)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

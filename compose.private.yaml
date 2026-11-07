@@ -1,0 +1,67 @@
+# Ch 7, strong form, for Linux with an NVIDIA GPU: the models and the agent on a network with
+# no route out (`internal: true`). Nothing in this file can reach the internet, so a full run
+# that completes here made no external call, by construction.
+#
+#   docker compose -f compose.yaml -f compose.private.yaml --profile aip --profile private up -d
+#
+# On Apple Silicon, Docker cannot use the GPU; use Ollama and mlx_lm.server natively and
+# `brightwater netwatch` as the witness instead (docs/ch7-private-inference.md).
+
+services:
+  vllm-driver:
+    profiles: [private]
+    image: vllm/vllm-openai:v0.33.0
+    command: [--model, Qwen/Qwen3-8B, --served-model-name, qwen3-8b, --enable-auto-tool-choice,
+              --tool-call-parser, hermes, --port, "8000"]
+    volumes: [hf-cache:/root/.cache/huggingface]   # pre-populated: the network below cannot download
+    deploy: {resources: {reservations: {devices: [{capabilities: [gpu]}]}}}
+    networks: [sealed]
+
+  vllm-decision:
+    profiles: [private]
+    image: vllm/vllm-openai:v0.33.0
+    command: [--model, Qwen/Qwen2.5-0.5B-Instruct, --enable-lora, --lora-modules,
+              "brightwater-dm=/adapters", --port, "8000", --max-logprobs, "10"]
+    volumes: [hf-cache:/root/.cache/huggingface, ./decision_model/artifacts/adapters-peft:/adapters:ro]
+    # adapters-peft: a PEFT LoRA trained on the NVIDIA host with TRL from decision_model/data/mlx
+    # (same JSONL). MLX adapters are not in PEFT format and are not loaded here.
+    deploy: {resources: {reservations: {devices: [{capabilities: [gpu]}]}}}
+    networks: [sealed]
+
+  tei:
+    profiles: [private]
+    image: ghcr.io/huggingface/text-embeddings-inference:1.8
+    command: [--model-id, sentence-transformers/all-MiniLM-L6-v2, --port, "80"]
+    volumes: [hf-cache:/data]
+    networks: [sealed]
+
+  postgres: {networks: [default, sealed]}
+  cube: {networks: [default, sealed]}
+  neo4j-memory: {networks: [default, sealed]}
+  neo4j-aip: {networks: [default, sealed]}
+  aip-server: {networks: [default, sealed]}
+
+  runner:
+    # The agent, inside the sealed network only.
+    profiles: [private]
+    image: brightwater/app:latest
+    environment:
+      BRIGHTWATER_PG_HOST: postgres
+      BRIGHTWATER_CUBE_URL: http://cube:4000
+      BRIGHTWATER_NEO4J_URI: bolt://neo4j-memory:7687
+      AIP_SERVER: http://aip-server:8000
+      BRIGHTWATER_DRIVER_BASE_URL: http://vllm-driver:8000/v1
+      BRIGHTWATER_DRIVER_MODEL: qwen3-8b
+      BRIGHTWATER_EMBED_URL: http://tei:80/v1
+      BRIGHTWATER_DM_URL: http://vllm-decision:8000/v1
+      BRIGHTWATER_DM_SERVED_NAME: brightwater-dm   # vLLM serves the LoRA under its --lora-modules name
+    command: [procedure, run, --handbuilt, --configuration, ch7-private, --decision-model, "local:http://vllm-decision:8000/v1",
+              --auto-confirm, runner]   # unattended: no person on a sealed network; its reviews are not labels
+    networks: [sealed]
+
+networks:
+  sealed:
+    internal: true
+
+volumes:
+  hf-cache:

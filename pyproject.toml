@@ -26,6 +26,8 @@ dependencies = [
     # Ch 4 onward
     "agent-instruction-protocol[server]==0.7.0", # Apache-2.0
     "aip-spec==0.7.0",         # Apache-2.0
+    # Ch 7
+    "psutil==7.2.2",           # BSD-3-Clause, the netwatch witness
 ]
 
 [project.optional-dependencies]

@@ -50,7 +50,7 @@ All names, businesses and figures are invented.
 | `ch4` | [Compile the runs into an AIP procedure](docs/ch4-compiled-procedure.md) | What changes when the procedure is fixed and the model only judges and writes? |
 | `ch5` | [A governed policy change](docs/ch5-governed-policy-change.md) | When the policy changes, who is affected, and can you prove what the old rules were? |
 | `ch6` | [Own the decision model](docs/ch6-own-the-decision-model.md) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
-| `ch7` | Private inference end to end (coming) | Can the whole thing run without data leaving the machine, and how would you prove it? |
+| `ch7` | [Private inference end to end](docs/ch7-private-inference.md) | Can the whole thing run without data leaving the machine, and how would you prove it? |
 | `ch8` | Identity, entitlements and the control plane (coming) | Who is allowed to make this decision, and what stops everyone else? |
 | `ch9` | The audit packet (coming) | Given only a decision id, can you reconstruct everything, and tell if anyone changed it? |
 | `ch10` | Close the loop (coming) | How does the model learn from human reviews without quietly getting worse? |

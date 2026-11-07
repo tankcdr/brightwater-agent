@@ -6,7 +6,7 @@ Docker, a model API key, Apple Silicon or a person. Run them in order; each step
 save under `results/live/` so the write-ups can quote real output.
 
 Target machine: Apple Silicon Mac with Docker Desktop, [uv](https://docs.astral.sh/uv/),
-and `ANTHROPIC_API_KEY` in the environment.
+[Ollama](https://ollama.com), and `ANTHROPIC_API_KEY` in the environment.
 
 ## 0. Setup
 
@@ -87,6 +87,21 @@ brightwater dm evaluate --options A,C,D | tee results/live/ch6-evaluate.json   #
 brightwater procedure run --handbuilt --repeat 3 --configuration ch6-procedure-D \
     --decision-model local:http://localhost:8081/v1 --auto-confirm chris | tee results/live/ch6-runs.txt
 ```
+
+## Ch 7. Private inference
+
+```bash
+ollama pull qwen3:8b && ollama pull all-minilm
+export BRIGHTWATER_DRIVER_BASE_URL=http://localhost:11434/v1 BRIGHTWATER_DRIVER_MODEL=qwen3:8b
+export BRIGHTWATER_EMBED_URL=http://localhost:11434/v1
+unset LANGFUSE_HOST
+brightwater netwatch -- brightwater procedure run --handbuilt --repeat 3 --configuration ch7-private \
+    --model qwen3:8b --decision-model local:http://localhost:8081/v1 --auto-confirm chris \
+    2>&1 | tee results/live/ch7-netwatch.txt
+brightwater results table
+```
+
+Expect `netwatch: ... 0 external`.
 
 ## Finally
 

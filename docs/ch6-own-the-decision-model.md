@@ -422,4 +422,4 @@ The driver's answer is recorded by AIP as `manual`, with no model and no confide
 
 The judgment step is now answered by a model we trained, can version, and can measure, and its confidence means something because it is calibrated against held-out labels. AIP's history and the decision row both say which model answered. The rationale is still written by a frontier model over a public API, though, so the case's figures still leave the building on every run. Chapter 7 moves every model the procedure uses onto the machine and proves that nothing goes out.
 
-**Previous:** [Chapter 5](ch5-governed-policy-change.md) · **Next:** Chapter 7. Private inference end to end
+**Previous:** [Chapter 5](ch5-governed-policy-change.md) · **Next:** [Chapter 7. Private inference end to end](ch7-private-inference.md)

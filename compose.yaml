@@ -5,6 +5,10 @@
 #
 # Langfuse (Ch 3) is its own project:
 #   docker compose -p langfuse -f docker/langfuse/docker-compose.yml --env-file docker/langfuse/langfuse.env up -d
+#
+# Models (Ch 6-7) run natively on Apple Silicon for Metal: Ollama for the driver and embeddings,
+# mlx_lm.server for the decision model. On Linux with NVIDIA, compose.private.yaml runs vLLM and
+# TEI instead, on a network with no route out.
 
 name: brightwater
 
@@ -96,7 +100,6 @@ services:
     ports: ["8000:8000"]
 
   # ---------------------------------------------------------------- later
-  # vllm, tei:      Ch 6-7, private inference
   # openfga, keycloak, agentgateway, opa:  Ch 8, identity and control plane
 
 volumes:
