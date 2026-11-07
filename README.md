@@ -46,7 +46,7 @@ All names, businesses and figures are invented.
 | `ch0` | [Systems of record and policy as code](docs/ch0-systems-of-record.md) | Before anything smart touches a decision, what is the referee? |
 | `ch1` | [Ontology and the memory graph](docs/ch1-ontology-and-graph.md) | How do you know your systems agree with each other, and how does an agent see across them? |
 | `ch2` | [Semantic layer](docs/ch2-semantic-layer.md) | When someone changes what "DSCR" means, what moves, and can you still prove the numbers? |
-| `ch3` | Free-form agent, fully recorded (coming) | Left to itself, what does a capable agent cost, and how consistent is it? |
+| `ch3` | [Free-form agent, fully recorded](docs/ch3-free-form-agent.md) | Left to itself, what does a capable agent cost, and how consistent is it? |
 | `ch4` | Compile the runs into an AIP procedure (coming) | What changes when the procedure is fixed and the model only judges and writes? |
 | `ch5` | A governed policy change (coming) | When the policy changes, who is affected, and can you prove what the old rules were? |
 | `ch6` | Own the decision model (coming) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
@@ -95,13 +95,17 @@ Starting each chapter on a branch of your own keeps any changes you make during 
 
 How the chapters fit together, what carries over from one to the next, and how to fix the errors people usually hit are all in [Working through the chapters](docs/working-through-the-chapters.md). Read it once before you start.
 
-**Reproduce the published numbers.** From Chapter 3 on, `RUNBOOK.md` runs every chapter's live proof in order and saves the outputs to `results/live/`. It is written so that Claude Code can run it for you (`CLAUDE.md` tells it how), but it is plain shell and you can run it yourself.
+**Reproduce the published numbers.** [RUNBOOK.md](RUNBOOK.md) runs every chapter's live proof in order and saves the outputs to `results/live/`. It is written so that Claude Code can run it for you ([CLAUDE.md](CLAUDE.md) tells it how), but it is plain shell and you can run it yourself.
 
 ## Start here
 
-You need Docker and [uv](https://docs.astral.sh/uv/). uv installs the Python each chapter needs (3.12 is fine for Chapters 0 to 3; Chapter 4 onward needs 3.14, because AIP 0.7.0 does). Later chapters need more, and each chapter's header says what.
+You need Docker and [uv](https://docs.astral.sh/uv/). uv installs the Python each chapter needs (3.12 is fine for Chapters 0 to 3; Chapter 4 onward needs 3.14, because AIP 0.7.0 does). Later chapters need more, and each chapter's header says what:
 
-Every chapter's tests run with no API key at all; that is what CI runs.
+| From | You also need |
+|---|---|
+| Ch 3 | an Anthropic API key (`ANTHROPIC_API_KEY`); Langfuse is optional |
+
+Every chapter's tests also run with no API key at all, using a scripted driver; that is what CI runs. The live runs are what produce the numbers.
 
 ```bash
 git clone https://github.com/tankcdr/brightwater-agent.git && cd brightwater-agent
@@ -126,6 +130,8 @@ Services are added through Compose profiles, so earlier chapters never pay for l
 |---|---|---|
 | (default) | Postgres 16 with pgvector and pgaudit; Neo4j Community (memory graph) from Ch 1; Cube Core from Ch 2 | Ch 0 |
 
+Langfuse (Ch 3, optional) runs from its own vendored compose file in `docker/langfuse/`.
+
 ## Layout
 
 ```
@@ -137,6 +143,8 @@ schema/shacl/          cross-record constraints the schema cannot express
 semantic/              the Apache Ossie model, the vendored spec schema, generated Cube files
 src/brightwater/       policy, metrics, ontology gate, graph, tools, agent, procedure driver,
                        decision model, netwatch, identity, audit, loop, CLI
+skills/                the compiled AIP procedure (current revision), its sources, and revision 1
+results/               prices, run records and the computed results table
 queries/               numbered graph queries used in the text
 tests/                 one proof per chapter
 docs/                  one file per chapter

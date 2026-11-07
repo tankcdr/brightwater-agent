@@ -345,4 +345,4 @@ Three layers now answer three different questions. The systems of record hold wh
 
 A note for Chapter 8: the semantic layer reads across coverage on purpose (Northpine's banker needs Ridgeback's days past due, not Ridgeback's ledger), so when row-level security goes on, Cube will query as a service role and enforce entitlements on what it returns rather than on what it reads.
 
-**Previous:** [Chapter 1](ch1-ontology-and-graph.md) · **Next:** Chapter 3. Free-form agent, fully recorded
+**Previous:** [Chapter 1](ch1-ontology-and-graph.md) · **Next:** [Chapter 3. Free-form agent, fully recorded](ch3-free-form-agent.md)

@@ -149,6 +149,43 @@ def cmd_semantic_impact(a: argparse.Namespace) -> None:
     print(f"{len(changes)} application(s) change: " + ", ".join(f"{n} {b}->{a}" for (b, a), n in moves.most_common()))
 
 
+def _app_ids(a: argparse.Namespace) -> list[str]:
+    ids = list(fixture.load_expectations()) if getattr(a, "handbuilt", False) else a.application_ids
+    if not ids:
+        raise SystemExit("give one or more application ids, or --handbuilt")
+    return ids
+
+
+def cmd_tool(a: argparse.Namespace) -> None:
+    from . import tools
+    ctx = tools.RunContext(application_id=a.application_id or "", configuration="cli")
+    fn = tools.TOOLS[a.name]
+    out = fn(ctx) if a.name == "get_policy" else fn(ctx, a.application_id)
+    print(json.dumps(out, indent=2, default=str))
+
+
+def cmd_agent_run(a: argparse.Namespace) -> None:
+    from . import agent, bench
+    for app_id in _app_ids(a):
+        for i in range(a.repeat):
+            model = None
+            name = a.model or agent.default_model()
+            if name == "scripted":
+                from .scripted import ScriptedAnalyst
+                model = ScriptedAnalyst(application_id=app_id)
+            ctx = agent.run(app_id, configuration=a.configuration, model=model, model_name=name,
+                            use_memory=not a.no_memory)
+            row = bench.record(ctx) if name != "scripted" or a.record else None
+            d = ctx.decision or {}
+            print(f"{app_id} run {i + 1}: {d.get('outcome', 'NOT FILED'):<8} lint rejections {ctx.lint_rejections} "
+                  f"tools {'>'.join(ctx.tool_calls)}" + (f"  {row['wall_s']}s ${row['cost_usd'] or 0:.4f}" if row else ""))
+
+
+def cmd_results_table(a: argparse.Namespace) -> None:
+    from . import bench
+    print(bench.table())
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="brightwater", description="Brightwater loan assessment tutorial")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -207,6 +244,26 @@ def main(argv: list[str] | None = None) -> None:
     si.add_argument("--model", required=True, help="the candidate Ossie model")
     si.add_argument("--baseline", default=str(ROOT / "semantic" / "brightwater.ossie.yaml"))
     si.set_defaults(fn=cmd_semantic_impact)
+
+    tl = sub.add_parser("tool", help="call one agent tool and print its JSON (what the agent sees)")
+    tl.add_argument("name", choices=["get_application", "get_figures", "get_related_facilities", "find_connections",
+                                     "get_notes", "get_policy"])
+    tl.add_argument("application_id", nargs="?")
+    tl.set_defaults(fn=cmd_tool)
+
+    ag = sub.add_parser("agent", help="the free-form agent (Ch 3)").add_subparsers(dest="sub", required=True)
+    ar = ag.add_parser("run", help="assess applications with the agent, recording every run")
+    ar.add_argument("application_ids", nargs="*")
+    ar.add_argument("--handbuilt", action="store_true")
+    ar.add_argument("--repeat", type=int, default=1)
+    ar.add_argument("--model", help="model id, or 'scripted' for a no-API dry run (default $BRIGHTWATER_DRIVER_MODEL)")
+    ar.add_argument("--configuration", default="ch3-freeform")
+    ar.add_argument("--no-memory", action="store_true", help="skip the Neo4j memory middleware and trace")
+    ar.add_argument("--record", action="store_true", help="also record scripted runs in results/runs.jsonl")
+    ar.set_defaults(fn=cmd_agent_run)
+
+    rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
+    rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)
 
     a = p.parse_args(argv)
     a.fn(a)

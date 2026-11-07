@@ -4,6 +4,9 @@
 #   docker compose up -d postgres            # Ch 0
 #   docker compose up -d postgres neo4j-memory  # Ch 1
 #   docker compose up -d                     # Ch 2 (adds Cube)
+#
+# Langfuse (Ch 3) is its own project:
+#   docker compose -p langfuse -f docker/langfuse/docker-compose.yml --env-file docker/langfuse/langfuse.env up -d
 
 name: brightwater
 
@@ -72,7 +75,6 @@ services:
 
   # ---------------------------------------------------------------- later
   # neo4j-aip:      Ch 4, AIP procedure catalog and run history
-  # langfuse:       Ch 3, traces
   # vllm, tei:      Ch 6-7, private inference
   # openfga, keycloak, agentgateway, opa:  Ch 8, identity and control plane
 

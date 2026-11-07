@@ -56,6 +56,22 @@ class NoEmbeddings:
         raise RuntimeError("embeddings are not configured until Ch 7")
 
 
+def embedder():
+    """Ch 7: a local OpenAI-compatible embeddings server (Ollama on Apple Silicon, TEI on NVIDIA).
+
+    Set BRIGHTWATER_EMBED_URL (e.g. http://localhost:11434/v1) and BRIGHTWATER_EMBED_MODEL
+    (default all-minilm, i.e. sentence-transformers/all-MiniLM-L6-v2, Apache-2.0, 384 dimensions).
+    Without them, the refusing stub: nothing is ever embedded by a cloud API by accident.
+    """
+    url = os.getenv("BRIGHTWATER_EMBED_URL")
+    if not url:
+        return NoEmbeddings()
+    from neo4j_agent_memory.llm.adapters.openai import OpenAIEmbeddingProvider
+
+    return OpenAIEmbeddingProvider(model=os.getenv("BRIGHTWATER_EMBED_MODEL", "all-minilm"), api_base=url,
+                                   api_key=os.getenv("BRIGHTWATER_EMBED_API_KEY", "local"), dimensions=384)
+
+
 def settings():
     from neo4j_agent_memory import MemorySettings
     from neo4j_agent_memory.config.settings import ExtractionConfig, ExtractorType
@@ -69,7 +85,7 @@ def settings():
             "database": os.getenv("BRIGHTWATER_NEO4J_DATABASE", "neo4j"),
         },
         llm=None,
-        embedding=NoEmbeddings(),
+        embedding=embedder(),
         extraction=ExtractionConfig(extractor_type=ExtractorType.NONE, enable_llm_fallback=False),
     )
 
@@ -224,3 +240,49 @@ async def run_named_query(name: str, params: list[str]) -> list[dict[str, Any]]:
     kv = dict(p.split("=", 1) for p in params)
     async with MemoryClient(settings()) as memory:
         return await memory.graph.execute_read(_query_text(name), kv)
+
+
+RECORD_DECISION = """
+MATCH (app:Application {record_key: $application_id})
+MATCH (rt:ReasoningTrace {id: $trace_id})
+MERGE (d:Decision {decision_id: $decision_id})
+SET d.outcome = $outcome, d.status = $status, d.configuration = $configuration, d.run_id = $run_id,
+    d.answered_by = $answered_by, d.semantic_version = $semantic_version, d.policy_version = $policy_version,
+    d.cited_records = $cited_records, d.filed_at = datetime()
+MERGE (d)-[:DECIDES]->(app)
+MERGE (rt)-[:PRODUCED]->(d)
+"""
+
+
+async def record_run(ctx: Any) -> str:
+    """Write one run as a reasoning trace (steps in call order) and link its filed decision.
+
+    neo4j-agent-memory stores the trace as (:ReasoningTrace)-[:HAS_STEP {order}]->(:ReasoningStep)
+    -[:USES_TOOL]->(:ToolCall)-[:INSTANCE_OF]->(:Tool), which is what query 03 reads to compare
+    step orders across runs.
+    """
+    from neo4j_agent_memory import MemoryClient
+
+    async with MemoryClient(settings()) as memory:
+        rt = await memory.reasoning.start_trace(
+            ctx.run_id, f"assess {ctx.application_id}", generate_embedding=False,
+            metadata={"configuration": ctx.configuration, "application_id": ctx.application_id,
+                      "model": ctx.model, "otel_trace_id": ctx.trace_id})
+        for i, e in enumerate(ctx.events):
+            step = await memory.reasoning.add_step(
+                rt.id, action=e["tool"], observation=f"{len(e['records'])} record(s); ok={e['ok']}",
+                generate_embedding=False, metadata={"order": i})
+            await memory.reasoning.record_tool_call(step.id, e["tool"], {k: str(v)[:500] for k, v in e["args"].items()},
+                                                    result={"records": e["records"][:50]}, duration_ms=e["ms"])
+        outcome = (ctx.decision or {}).get("outcome", "not filed")
+        await memory.reasoning.complete_trace(rt.id, outcome=outcome, success=ctx.decision is not None)
+        await memory.graph.execute_write(
+            "MATCH (rt:ReasoningTrace {id: $id}) SET rt.application_id = $app, rt.configuration = $conf",
+            {"id": str(rt.id), "app": ctx.application_id, "conf": ctx.configuration})
+        if ctx.decision:
+            d = ctx.decision
+            await memory.graph.execute_write(RECORD_DECISION, {
+                **{k: d[k] for k in ("application_id", "decision_id", "outcome", "status", "configuration", "run_id",
+                                     "answered_by", "semantic_version", "policy_version", "cited_records")},
+                "trace_id": str(rt.id)})
+        return str(rt.id)

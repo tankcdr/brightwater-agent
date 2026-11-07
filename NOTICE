@@ -10,4 +10,11 @@ This product includes software developed at The Apache Software Foundation
     8437d59e07c7fa56fcabc4a16d46864fd88d7313. Licensed under the Apache
     License, Version 2.0. Unmodified.
 
+  docker/langfuse/docker-compose.yml
+    Langfuse self-hosting compose file, from https://github.com/langfuse/langfuse
+    (docker-compose.yml on main, 2026-11-06). MIT license (Copyright (c)
+    2023-2026 ClickHouse, Inc.). Modified: the bundled Postgres is published on
+    port 5433 instead of 5432. The tutorial uses only Langfuse's MIT-licensed
+    core, never the ee/ directories.
+
 All business names, people, figures and notes in fixture/ are invented.
