@@ -28,6 +28,7 @@ dependencies = [
     "aip-spec==0.7.0",         # Apache-2.0
     # Ch 7
     "psutil==7.2.2",           # BSD-3-Clause, the netwatch witness
+    "PyJWT[crypto]==2.15.1",   # MIT (cryptography: Apache-2.0 OR BSD-3-Clause), Ch 8 token verification
 ]
 
 [project.optional-dependencies]

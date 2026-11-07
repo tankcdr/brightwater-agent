@@ -24,6 +24,7 @@ import json
 import os
 import re
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -194,8 +195,19 @@ def run(application_id: str, answerer: Answerer, person: Person, configuration: 
         ctx.trace_id = f"{root.get_span_context().trace_id:032x}"
         if isinstance(answerer, ModelAnswerer):
             answerer.callbacks = [tracing.GenAISpans(tracer, root, answerer.name, ctx.run_id)]
+        # One join key (Ch 9): the decision id is minted here and travels as a span attribute, the
+        # scripts' environment (so `file` uses it and Postgres connections carry it), and a header.
+        from . import identity
+        decision_id = str(uuid.uuid4())
+        root.set_attribute("brightwater.decision_id", decision_id)
+        user = identity.current_user()
+        if user["subject"]:
+            root.set_attribute("enduser.id", user["subject"])
         run_env = {"BRIGHTWATER_CONFIGURATION": configuration, "BRIGHTWATER_DRIVER_RUN": ctx.run_id,
-                   "BRIGHTWATER_TRACE_ID": ctx.trace_id, "BRIGHTWATER_DRIVER_MODEL": answerer.name}
+                   "BRIGHTWATER_TRACE_ID": ctx.trace_id, "BRIGHTWATER_DRIVER_MODEL": answerer.name,
+                   "BRIGHTWATER_DECISION_ID": decision_id}
+        if identity.access_token():
+            run_env["BRIGHTWATER_TOKEN"] = identity.access_token()
         saved_env = {k: os.environ.get(k) for k in run_env}
         os.environ.update(run_env)
 
@@ -280,7 +292,7 @@ def _record_review(application_id: str, pause: Any, overrides: dict[str, Any], a
     """Every human answer at a review pause becomes training data for the next model (Ch 6, Ch 10)."""
     path = review_answers_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    row = {"application_id": application_id, "step": pause.step, "proposed": pause.proposed_answers,
+    row = {"decision_id": os.getenv("BRIGHTWATER_DECISION_ID"), "application_id": application_id, "step": pause.step, "proposed": pause.proposed_answers,
            "flagged": [f["question"] for f in pause.review], "final": {**pause.proposed_answers, **overrides},
            "answered_by": answered_by, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     with path.open("a", encoding="utf-8") as f:

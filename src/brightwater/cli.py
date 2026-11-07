@@ -278,6 +278,29 @@ def cmd_netwatch(a: argparse.Namespace) -> None:
     sys.exit(netwatch.run(cmd))
 
 
+def cmd_auth(a: argparse.Namespace) -> None:
+    import getpass
+
+    from . import identity
+    if a.sub == "login":
+        c = identity.login(a.username, a.password or getpass.getpass(f"password for {a.username}: "))
+        print(f"signed in as {c.get('preferred_username')} roles {(c.get('realm_access') or {}).get('roles', [])}")
+    else:
+        print(json.dumps(identity.current_user(), indent=2))
+
+
+def cmd_authz(a: argparse.Namespace) -> None:
+    from . import db, identity
+    if a.sub == "sync":
+        print(identity.fga_sync())
+    elif a.sub == "rls-on":
+        with db.session() as conn:
+            conn.run((db.SCHEMA_DIR / "900_enable_rls.sql").read_text())
+        print("row-level security enabled for brightwater_app")
+    elif a.sub == "check":
+        print(identity.can_assess(a.username, a.application_id))
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -417,6 +440,20 @@ def main(argv: list[str] | None = None) -> None:
     nw = sub.add_parser("netwatch", help="run a command with no API keys and record every remote endpoint (Ch 7)")
     nw.add_argument("command", nargs=argparse.REMAINDER)
     nw.set_defaults(fn=cmd_netwatch)
+
+    au = sub.add_parser("auth", help="sign in with Keycloak (Ch 8)").add_subparsers(dest="sub", required=True)
+    al = au.add_parser("login")
+    al.add_argument("username")
+    al.add_argument("--password")
+    al.set_defaults(fn=cmd_auth)
+    au.add_parser("whoami").set_defaults(fn=cmd_auth)
+    az = sub.add_parser("authz", help="entitlements and row-level security (Ch 8)").add_subparsers(dest="sub", required=True)
+    az.add_parser("sync", help="write the OpenFGA model and coverage tuples").set_defaults(fn=cmd_authz)
+    az.add_parser("rls-on", help="enable row-level security for the agent's role").set_defaults(fn=cmd_authz)
+    ac = az.add_parser("check", help="may USER assess APPLICATION?")
+    ac.add_argument("username")
+    ac.add_argument("application_id")
+    ac.set_defaults(fn=cmd_authz)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

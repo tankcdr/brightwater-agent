@@ -51,7 +51,7 @@ All names, businesses and figures are invented.
 | `ch5` | [A governed policy change](docs/ch5-governed-policy-change.md) | When the policy changes, who is affected, and can you prove what the old rules were? |
 | `ch6` | [Own the decision model](docs/ch6-own-the-decision-model.md) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
 | `ch7` | [Private inference end to end](docs/ch7-private-inference.md) | Can the whole thing run without data leaving the machine, and how would you prove it? |
-| `ch8` | Identity, entitlements and the control plane (coming) | Who is allowed to make this decision, and what stops everyone else? |
+| `ch8` | [Identity, entitlements and the control plane](docs/ch8-identity-and-control-plane.md) | Who is allowed to make this decision, and what stops everyone else? |
 | `ch9` | The audit packet (coming) | Given only a decision id, can you reconstruct everything, and tell if anyone changed it? |
 | `ch10` | Close the loop (coming) | How does the model learn from human reviews without quietly getting worse? |
 
@@ -131,6 +131,7 @@ Services are added through Compose profiles, so earlier chapters never pay for l
 |---|---|---|
 | (default) | Postgres 16 with pgvector and pgaudit; Neo4j Community (memory graph) from Ch 1; Cube Core from Ch 2 | Ch 0 |
 | `aip` | a second Neo4j for AIP's run history, and the AIP server | Ch 4 |
+| `control` | Keycloak, OpenFGA, OPA, agentgateway | Ch 8 |
 
 Langfuse (Ch 3, optional) runs from its own vendored compose file in `docker/langfuse/`.
 
@@ -147,6 +148,8 @@ src/brightwater/       policy, metrics, ontology gate, graph, tools, agent, proc
                        decision model, netwatch, identity, audit, loop, CLI
 skills/                the compiled AIP procedure (current revision), its sources, and revision 1
 decision_model/        rubric, MLX-LM training script, model registry
+policy/                OPA rego and the OpenFGA model
+gateway/               agentgateway config
 aip_resolver/          the AIP patch that records which decision model answered
 results/               prices, run records and the computed results table
 queries/               numbered graph queries used in the text

@@ -75,7 +75,7 @@ class Backends:
 
     def sql(self, sql: str, **params: Any) -> list[dict[str, Any]]:
         from . import db
-        with db.session() as conn:
+        with db.session(agent=True) as conn:
             return db.rows(conn, sql, **params)
 
     def graph(self, name: str, **params: Any) -> list[dict[str, Any]]:
@@ -83,16 +83,18 @@ class Backends:
         return asyncio.run(graph.run_named_query(name, [f"{k}={v}" for k, v in params.items()]))
 
     def file(self, row: dict[str, Any]) -> str:
+        import os
+
         from . import db
-        decision_id = row.get("decision_id") or str(uuid.uuid4())
-        with db.session() as conn:
+        decision_id = row.get("decision_id") or os.getenv("BRIGHTWATER_DECISION_ID") or str(uuid.uuid4())
+        with db.session(agent=True) as conn:
             return str(conn.run(
                 "INSERT INTO agent.decision (decision_id, application_id, outcome, status, requires_person, rationale, "
                 "cited_records, records_read, assessment, configuration, run_id, trace_id, answered_by, "
-                "semantic_version, policy_version) VALUES (CAST(:decision_id AS uuid), "
+                "user_subject, semantic_version, policy_version) VALUES (CAST(:decision_id AS uuid), "
                 ":application_id, :outcome, :status, :requires_person, :rationale, CAST(:cited_records AS jsonb), "
                 "CAST(:records_read AS jsonb), CAST(:assessment AS jsonb), :configuration, :run_id, :trace_id, "
-                ":answered_by, :semantic_version, :policy_version) RETURNING decision_id",
+                ":answered_by, :user_subject, :semantic_version, :policy_version) RETURNING decision_id",
                 **{**{k: v for k, v in row.items() if k != "records_read"}, "decision_id": decision_id,
                    "cited_records": json.dumps(row["cited_records"]),
                    "records_read": json.dumps(sorted(row.get("records_read", []))),
@@ -223,18 +225,38 @@ def file_decision(ctx: RunContext, application_id: str, outcome: str, rationale:
            "rationale": rationale, "cited_records": linter.cited(rationale), "assessment": assessment,
            "configuration": ctx.configuration, "run_id": ctx.run_id, "trace_id": ctx.trace_id,
            "answered_by": answered_by or f"agent:{ctx.model}", "semantic_version": semantic_version(),
-           "policy_version": policy_version or policy.policy_version(), "records_read": sorted(ctx.records)}
+           "policy_version": policy_version or policy.policy_version(), "records_read": sorted(ctx.records),
+           "user_subject": _user_subject()}
     decision_id = b.file(row)
     ctx.decision = {**row, "decision_id": decision_id}
     return {"filed": True, "decision_id": decision_id, "status": row["status"]}
 
 
+def _user_subject() -> str | None:
+    from . import identity
+    return identity.current_user()["subject"]
+
+
+def guarded(name: str, fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """With enforcement on (Ch 8), OPA (with OpenFGA's entitlement as input) decides every tool call."""
+    def call(ctx: RunContext, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        from . import identity
+        if identity.enforced():
+            ok, why = identity.tool_allowed(name, kwargs.get("application_id") or (args[0] if args else None)
+                                            if name != "get_policy" else None)
+            if not ok:
+                return {"error": f"denied by policy: {why}"}
+        return fn(ctx, *args, **kwargs)
+    call.__doc__ = fn.__doc__
+    return call
+
+
 TOOLS: dict[str, Callable[..., dict[str, Any]]] = {
-    "get_application": get_application,
-    "get_figures": get_figures,
-    "get_related_facilities": get_related_facilities,
-    "find_connections": find_connections,
-    "get_notes": get_notes,
-    "get_policy": get_policy,
-    "file_decision": file_decision,
+    "get_application": guarded("get_application", get_application),
+    "get_figures": guarded("get_figures", get_figures),
+    "get_related_facilities": guarded("get_related_facilities", get_related_facilities),
+    "find_connections": guarded("find_connections", find_connections),
+    "get_notes": guarded("get_notes", get_notes),
+    "get_policy": guarded("get_policy", get_policy),
+    "file_decision": guarded("file_decision", file_decision),
 }

@@ -149,8 +149,14 @@ def run(application_id: str, configuration: str = "ch3-freeform", model: Any = N
     ctx = T.RunContext(application_id=application_id, configuration=configuration, model=model_name)
     if use_memory is None:
         use_memory = os.getenv("BRIGHTWATER_MEMORY", "on") == "on"
+    # One join key per decision (Ch 9): minted here, read by the filing tool and Postgres connections.
+    import uuid
+    os.environ["BRIGHTWATER_DECISION_ID"] = str(uuid.uuid4())
     t0 = time.perf_counter()
-    asyncio.run(_run_agent(ctx, model or chat_model(model_name), backends, use_memory))
+    try:
+        asyncio.run(_run_agent(ctx, model or chat_model(model_name), backends, use_memory))
+    finally:
+        os.environ.pop("BRIGHTWATER_DECISION_ID", None)
     ctx.wall_s = time.perf_counter() - t0  # type: ignore[attr-defined]
     if use_memory:
         from . import graph

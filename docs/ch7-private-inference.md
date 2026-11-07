@@ -283,4 +283,4 @@ The run fails at the first step that needs the model, the `assess` pause after `
 
 Every model in the stack now runs on hardware the bank controls, the run is witnessed, and the limits of the witness are written down. What the agent still lacks is an identity: it can read any application, and anyone who can reach the AIP server can publish a procedure. Chapter 8 puts a name on every request and decides, in three places, what that name may do.
 
-**Previous:** [Chapter 6](ch6-own-the-decision-model.md) · **Next:** Chapter 8. Identity, entitlements and the control plane
+**Previous:** [Chapter 6](ch6-own-the-decision-model.md) · **Next:** [Chapter 8. Identity, entitlements and the control plane](ch8-identity-and-control-plane.md)

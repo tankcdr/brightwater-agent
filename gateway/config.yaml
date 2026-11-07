@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+# agentgateway (Apache-2.0, Linux Foundation) in front of the AIP server and the model API (Ch 8).
+#
+# Port 3100: the AIP server. Every request needs a Keycloak token; OPA decides (publishing
+#            needs procedure_author). The access log ties each call to a user and an agent.
+# Port 3101: the model API. The driver sets ANTHROPIC_BASE_URL to this, so every model call is
+#            logged with the same user, agent and decision headers.
+config:
+  readinessAddr: 0.0.0.0:19001
+  statsAddr: 0.0.0.0:19002
+
+frontendPolicies:
+  accessLog:
+    add:
+      user: jwt.preferred_username
+      agent: request.headers["x-brightwater-agent"]
+      decision_id: request.headers["x-brightwater-decision"]
+      opa_decision: extauthz.decision
+
+binds:
+- port: 3100
+  listeners:
+  - protocol: HTTP
+    routes:
+    - name: aip
+      backends:
+      - host: aip-server:8000
+      policies:
+        jwtAuth:
+          issuer: http://localhost:8180/realms/brightwater
+          audiences: [brightwater-gateway]
+          jwks:
+            url: http://keycloak:8180/realms/brightwater/protocol/openid-connect/certs
+        extAuthz:
+          host: opa:8181
+          protocol:
+            http:
+              path: '"/v1/data/brightwater/allow"'
+              addRequestHeaders:
+                content-type: '"application/json"'
+                :method: '"POST"'
+              body: |
+                {"input": {"method": request.method, "path": request.path,
+                           "user": jwt.preferred_username, "roles": jwt.realm_access.roles}}
+              metadata:
+                decision: json(response.body).result
+        authorization:
+          rules:
+          - require: extauthz.decision == true
+        # The caller's Keycloak token stops here; the AIP server gets its own shared token.
+        requestHeaderModifier:
+          set:
+            authorization: "Bearer brightwater-aip-local"
+
+llm:
+  port: 3101
+  models:
+  - name: claude-opus-5-5
+    provider: anthropic
+    params:
+      apiKey: $ANTHROPIC_API_KEY
+  - name: claude-sonnet-5-5
+    provider: anthropic
+    params:
+      apiKey: $ANTHROPIC_API_KEY
+  - name: claude-haiku-5-5
+    provider: anthropic
+    params:
+      apiKey: $ANTHROPIC_API_KEY

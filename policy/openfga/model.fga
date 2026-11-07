@@ -1,0 +1,17 @@
+# The same model as model.json, in OpenFGA's DSL, for reading.
+# A banker may assess an application if they cover the applicant business.
+# "Sees the owner's stake elsewhere" is deliberately not modelled: stakes are not restricted.
+model
+  schema 1.1
+
+type user
+
+type business
+  relations
+    define coverer: [user]
+    define can_assess: coverer
+
+type application
+  relations
+    define applicant: [business]
+    define can_assess: can_assess from applicant

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {"type": "user"},
+    {
+      "type": "business",
+      "relations": {
+        "coverer": {"this": {}},
+        "can_assess": {"computedUserset": {"relation": "coverer"}}
+      },
+      "metadata": {"relations": {"coverer": {"directly_related_user_types": [{"type": "user"}]}, "can_assess": {}}}
+    },
+    {
+      "type": "application",
+      "relations": {
+        "applicant": {"this": {}},
+        "can_assess": {"tupleToUserset": {"tupleset": {"relation": "applicant"}, "computedUserset": {"relation": "can_assess"}}}
+      },
+      "metadata": {"relations": {"applicant": {"directly_related_user_types": [{"type": "business"}]}, "can_assess": {}}}
+    }
+  ]
+}

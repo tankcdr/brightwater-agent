@@ -2,6 +2,7 @@
 #
 #   docker compose up -d                      # Ch 0-2: Postgres, Neo4j (memory), Cube
 #   docker compose --profile aip up -d        # Ch 4+: Neo4j (AIP catalog) and the patched AIP server
+#   docker compose --profile control up -d    # Ch 8:  Keycloak, OpenFGA, OPA, agentgateway
 #
 # Langfuse (Ch 3) is its own project:
 #   docker compose -p langfuse -f docker/langfuse/docker-compose.yml --env-file docker/langfuse/langfuse.env up -d
@@ -99,8 +100,56 @@ services:
               --password, brightwater, --host, 0.0.0.0, --port, "8000", --token, brightwater-aip-local]
     ports: ["8000:8000"]
 
-  # ---------------------------------------------------------------- later
-  # openfga, keycloak, agentgateway, opa:  Ch 8, identity and control plane
+  # ---------------------------------------------------------------- Ch 8: control plane
+  keycloak:
+    profiles: [control]
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: [start-dev, --import-realm]
+    environment:
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8180"
+      KC_HTTP_PORT: "8180"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    ports: ["8180:8180"]
+    volumes:
+      - ./docker/keycloak/brightwater-realm.json:/opt/keycloak/data/import/brightwater-realm.json:ro
+    healthcheck:
+      # Ready once the realm's signing keys are served, which is what the gateway fetches at start.
+      # The image has no curl, so the probe speaks HTTP over bash's /dev/tcp.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8180 && printf 'GET /realms/brightwater/protocol/openid-connect/certs HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  openfga:
+    profiles: [control]
+    image: openfga/openfga:v1.22.1
+    command: [run]
+    ports: ["8082:8080"]
+
+  opa:
+    profiles: [control]
+    image: openpolicyagent/opa:1.22.2
+    command: [run, --server, --addr, ":8181", /policy/brightwater.rego]
+    ports: ["8181:8181"]
+    volumes:
+      - ./policy/opa:/policy:ro
+
+  agentgateway:
+    profiles: [control]
+    image: cr.agentgateway.dev/agentgateway:v1.7.0
+    command: [-f, /config/config.yaml]
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports: ["3100:3100", "3101:3101"]
+    volumes:
+      - ./gateway:/config:ro
+    depends_on:
+      keycloak: {condition: service_healthy}   # the gateway loads Keycloak's JWKS at start and exits if it can't
+      opa: {condition: service_started}
 
 volumes:
   pg-data:

@@ -1,0 +1,133 @@
+{
+  "realm": "brightwater",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 3600,
+  "roles": {
+    "realm": [
+      {
+        "name": "banker",
+        "description": "Assesses applications for businesses they cover"
+      },
+      {
+        "name": "procedure_author",
+        "description": "May publish procedures and governance queries"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "brightwater-cli",
+      "name": "brightwater CLI and agent",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "redirectUris": [],
+      "protocolMappers": [
+        {
+          "name": "gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "brightwater-gateway",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "dokafor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Delphine",
+      "lastName": "Okafor",
+      "email": "dokafor@brightwater.example",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brightwater",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "banker"
+      ]
+    },
+    {
+      "username": "mvelde",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Marcus",
+      "lastName": "Velde",
+      "email": "mvelde@brightwater.example",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brightwater",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "banker"
+      ]
+    },
+    {
+      "username": "ialbright",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Inez",
+      "lastName": "Albright",
+      "email": "ialbright@brightwater.example",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brightwater",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "banker"
+      ]
+    },
+    {
+      "username": "trenn",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Tobias",
+      "lastName": "Renn",
+      "email": "trenn@brightwater.example",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brightwater",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "banker"
+      ]
+    },
+    {
+      "username": "pauthor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Pat",
+      "lastName": "Author",
+      "email": "pauthor@brightwater.example",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "brightwater",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "procedure_author"
+      ]
+    }
+  ]
+}

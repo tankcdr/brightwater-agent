@@ -22,6 +22,7 @@ CREATE TABLE agent.decision (
     trace_id          text,               -- OpenTelemetry trace id
     answered_by       text NOT NULL,      -- who answered the judgment: agent:<model>, model:<resolver>/<version>, user:<subject>
     confirmed_by      text,               -- the person who confirmed a P6/P7 decision
+    user_subject      text,               -- the signed-in banker the agent acted for (Ch 8)
     semantic_version  text NOT NULL,      -- hash of the Ossie model that produced the figures
     policy_version    text NOT NULL,
     filed_at          timestamptz NOT NULL DEFAULT now()

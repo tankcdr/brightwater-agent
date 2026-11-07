@@ -103,6 +103,22 @@ brightwater results table
 
 Expect `netwatch: ... 0 external`.
 
+## Ch 8. Identity, entitlements, control plane
+
+```bash
+docker compose --profile control up -d --wait
+brightwater authz sync && brightwater authz rls-on
+brightwater auth login dokafor --password brightwater
+aip config --server http://localhost:3100 --token "$(python -c 'import json,pathlib;print(json.loads((pathlib.Path.home()/".brightwater/token.json").read_text())["access_token"])')"
+export BRIGHTWATER_ENFORCE=on
+brightwater procedure run APP-H1 --model scripted | tee results/live/ch8-covered.txt                # filed
+(brightwater procedure run APP-H4 --model scripted; true) 2>&1 | tail -5 | tee results/live/ch8-not-covered.txt   # fails closed
+(aip publish skills/brightwater-loan-assessment; true) 2>&1 | tee results/live/ch8-publish-banker.txt   # rejected
+brightwater auth login pauthor --password brightwater   # then re-run aip config with the new token
+aip publish skills/brightwater-loan-assessment 2>&1 | tee results/live/ch8-publish-author.txt         # accepted
+docker compose logs agentgateway --tail 50 | tee results/live/ch8-gateway-log.txt
+```
+
 ## Finally
 
 ```bash

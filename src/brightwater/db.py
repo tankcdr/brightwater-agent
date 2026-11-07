@@ -14,14 +14,25 @@ from .fixture import COLUMNS
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schema" / "postgres"
 
 
-def connect(banker_id: str | None = None) -> pg8000.native.Connection:
+def connect(banker_id: str | None = None, agent: bool = False) -> pg8000.native.Connection:
+    """A connection. `agent=True` with enforcement on (Ch 8) connects as the RLS-bound role.
+
+    The application name carries the decision id (Ch 9), so every pgaudit line a
+    decision's reads produce can be joined back to it (log_line_prefix includes %a).
+    """
+    from . import identity
+
+    user, password = os.getenv("BRIGHTWATER_PG_USER", "brightwater"), os.getenv("BRIGHTWATER_PG_PASSWORD", "brightwater")
+    if agent and identity.enforced():
+        user, password = "brightwater_app", os.getenv("BRIGHTWATER_APP_PG_PASSWORD", "brightwater_app")
+        banker_id = banker_id or identity.banker_id(identity.current_user()["username"]) or "nobody"
+    decision = os.getenv("BRIGHTWATER_DECISION_ID")
     conn = pg8000.native.Connection(
-        user=os.getenv("BRIGHTWATER_PG_USER", "brightwater"),
-        password=os.getenv("BRIGHTWATER_PG_PASSWORD", "brightwater"),
+        user=user, password=password,
         host=os.getenv("BRIGHTWATER_PG_HOST", "localhost"),
         port=int(os.getenv("BRIGHTWATER_PG_PORT", "5432")),
         database=os.getenv("BRIGHTWATER_PG_DB", "brightwater"),
-        application_name="brightwater",
+        application_name=f"brightwater:{decision}" if decision else "brightwater",
     )
     if banker_id:
         # Read by the RLS policies in schema/postgres/002_rls.sql (enforced from Ch 8).
@@ -30,8 +41,8 @@ def connect(banker_id: str | None = None) -> pg8000.native.Connection:
 
 
 @contextmanager
-def session(banker_id: str | None = None) -> Iterator[pg8000.native.Connection]:
-    conn = connect(banker_id)
+def session(banker_id: str | None = None, agent: bool = False) -> Iterator[pg8000.native.Connection]:
+    conn = connect(banker_id, agent=agent)
     try:
         yield conn
     finally:
