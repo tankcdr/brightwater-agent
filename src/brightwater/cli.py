@@ -301,6 +301,30 @@ def cmd_authz(a: argparse.Namespace) -> None:
         print(identity.can_assess(a.username, a.application_id))
 
 
+def cmd_audit(a: argparse.Namespace) -> None:
+    from . import audit
+    if a.query:
+        rows = audit.overridden() if a.query == "overridden" else audit.under_threshold()
+        print(json.dumps(rows, indent=2, default=str))
+        print(f"{len(rows)} decision(s)", file=sys.stderr)   # stdout stays valid JSON for `| tee x.json`
+        return
+    if a.seal:
+        print(audit.seal(a.seal))
+        return
+    if a.decision_id:
+        p = audit.packet(a.decision_id)
+        if not p:
+            raise SystemExit(f"no sealed packet for {a.decision_id}")
+        print(json.dumps(p["packet"], indent=2, default=str))
+        print(f"\npacket seq {p['seq']}  chain {p['chain_hash'][:16]}...", file=sys.stderr)
+    v = audit.verify()
+    print("chain verified: " + (f"{v['packets']} packet(s), head {v['head'][:16]}..." if v["ok"]
+                                else f"FAILED at seq {v['seq']} ({v['decision_id']}): {v['why']}"),
+          file=sys.stderr if a.decision_id else sys.stdout)
+    if not v["ok"]:
+        sys.exit(4)
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -454,6 +478,12 @@ def main(argv: list[str] | None = None) -> None:
     ac.add_argument("username")
     ac.add_argument("application_id")
     ac.set_defaults(fn=cmd_authz)
+
+    adt = sub.add_parser("audit", help="the audit packet for a decision, and chain verification (Ch 9)")
+    adt.add_argument("decision_id", nargs="?")
+    adt.add_argument("--seal", metavar="DECISION_ID", help="seal a decision's packet (filing does this automatically)")
+    adt.add_argument("--query", choices=["overridden", "under-threshold"], help="a governance query over sealed packets")
+    adt.set_defaults(fn=cmd_audit)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

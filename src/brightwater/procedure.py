@@ -328,6 +328,9 @@ def _finish(ctx: tools.RunContext, final: dict[str, Any], answerer: Answerer, ai
     ctx.decision = {**row, "decision_id": str(row["decision_id"]), "cited_records": row["cited_records"]}
     ctx.tool_calls = steps
     ctx.events = [{"tool": s, "args": {}, "records": [], "ok": True, "ms": 0} for s in steps]
+    if os.getenv("BRIGHTWATER_AUDIT", "on") == "on":
+        from . import audit
+        ctx.decision["sealed"] = audit.seal(ctx.decision["decision_id"])  # Ch 9: seal on filing
 
 
 def _configured_server() -> str | None:

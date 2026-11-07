@@ -119,6 +119,23 @@ aip publish skills/brightwater-loan-assessment 2>&1 | tee results/live/ch8-publi
 docker compose logs agentgateway --tail 50 | tee results/live/ch8-gateway-log.txt
 ```
 
+## Ch 9. The audit packet
+
+Audit an APP-H6 decision made signed in and enforced: `trenn` covers APP-H6.
+
+```bash
+brightwater auth login trenn --password brightwater
+aip config --server http://localhost:3100 --token "$(python -c 'import json,pathlib;print(json.loads((pathlib.Path.home()/".brightwater/token.json").read_text())["access_token"])')"
+export BRIGHTWATER_ENFORCE=on
+brightwater procedure run APP-H6 --configuration ch9-audit --decision-model local:http://localhost:8081/v1 \
+    --auto-confirm chris | tee results/live/ch9-run.txt
+ID=$(docker compose exec -T postgres psql postgresql://brightwater:brightwater@localhost/brightwater -tAc \
+     "select decision_id from agent.decision where application_id='APP-H6' order by filed_at desc limit 1")
+brightwater audit $ID | tee results/live/ch9-packet.json
+brightwater audit --query under-threshold | tee results/live/ch9-under-threshold.json
+brightwater audit --query overridden | tee results/live/ch9-overridden.json
+```
+
 ## Finally
 
 ```bash

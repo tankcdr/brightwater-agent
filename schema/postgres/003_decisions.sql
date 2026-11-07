@@ -15,7 +15,7 @@ CREATE TABLE agent.decision (
     requires_person   boolean NOT NULL,
     rationale         text NOT NULL,
     cited_records     jsonb NOT NULL,
-    records_read      jsonb,              -- every record key the run's tools returned
+    records_read      jsonb,              -- every record key the run's tools returned (Ch 9 audit)
     assessment        jsonb,              -- risk tier, cash flow stability, recommendation (when given)
     configuration     text NOT NULL,      -- e.g. ch3-freeform, ch4-procedure
     run_id            text NOT NULL,      -- the agent run, or the AIP run id from Ch 4

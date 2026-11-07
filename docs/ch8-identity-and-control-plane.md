@@ -313,4 +313,4 @@ Undo it: `unset BRIGHTWATER_TOKEN`.
 
 Every decision now has a person behind it, and every check made for that person is a row with the decision's id on it. The pieces of evidence for one decision are spread across Postgres, the memory graph, the AIP server, the trace and the logs. Chapter 9 gathers them into one sealed packet per decision.
 
-**Previous:** [Chapter 7](ch7-private-inference.md) · **Next:** Chapter 9. The audit packet
+**Previous:** [Chapter 7](ch7-private-inference.md) · **Next:** [Chapter 9. The audit packet](ch9-audit-packet.md)

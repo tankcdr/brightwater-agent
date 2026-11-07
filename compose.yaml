@@ -22,8 +22,8 @@ services:
       POSTGRES_USER: brightwater
       POSTGRES_PASSWORD: brightwater
       POSTGRES_DB: brightwater
-    # pgaudit logs every read with the relation it touched. Chapter 9 joins
-    # these lines to a decision id; Chapter 8 narrows them to the agent's role.
+    # pgaudit logs every read with the relation it touched; %a puts the application name,
+    # which carries the decision id (Ch 9), on every line.
     command:
       - postgres
       - -c
@@ -34,6 +34,8 @@ services:
       - pgaudit.log_relation=on
       - -c
       - pgaudit.log_parameter=on
+      - -c
+      - log_line_prefix=%m [%p] %a %u@%d 
     ports: ["5432:5432"]
     volumes:
       - pg-data:/var/lib/postgresql/data
