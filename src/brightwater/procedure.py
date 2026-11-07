@@ -10,7 +10,7 @@ The procedure decides the order of steps; the driver only acts at pauses:
   driver lints it before answering and asks again with the errors until it
   passes, so the `file` step never sees a bad rationale.
 * `client_task` `confirm-with-person`: routed to a person, never to a model.
-  This is the P6 guarantee.
+  This is the P6 (and from Ch 5, P7) guarantee.
 
 Runs go to an AIP server (`AIP_SERVER`, or `aip config --server`) when a
 published name is used, or run locally from the skill folder.
@@ -279,6 +279,48 @@ def build() -> list[Path]:
         shutil.copyfile(src, dst)
         written.append(dst)
     return written
+
+
+# ------------------------------------------------------------------ Ch 5: impact of a new revision
+def _rules_of(ref: str):  # noqa: ANN202
+    """The lending rules a revision ships with: a skill folder, or a published name@revision."""
+    import tempfile
+
+    from . import policy
+
+    path = Path(ref)
+    if not path.exists():
+        import aip
+        out = Path(tempfile.mkdtemp(prefix="aip-rev-"))
+        path = Path(aip.Client().get(ref if "@" in ref else f"{SKILL_NAME}@{ref}", out=str(out)).path)
+    return policy.rules_from_json(json.loads((path / "assets" / "policy.json").read_text()))
+
+
+def impact(old: str, new: str) -> dict[str, Any]:
+    """Every application whose decision changes between two revisions, and the runs pinned to the old one."""
+    from . import db, policy, semantic
+
+    rules_old, rules_new = _rules_of(old), _rules_of(new)
+    with db.session() as conn:
+        ids = [r[0] for r in conn.run("SELECT application_id FROM credit.application ORDER BY 1")]
+    facts = semantic.facts_direct(semantic.load(semantic.ROOT / "semantic" / "brightwater.ossie.yaml"), ids)
+    changes = []
+    for i in ids:
+        a, b = policy.evaluate(facts[i], rules_old), policy.evaluate(facts[i], rules_new)
+        if (a.outcome, a.requires_person, a.fired_ids) != (b.outcome, b.requires_person, b.fired_ids):
+            changes.append({"application_id": i, "outcome": [a.outcome.value, b.outcome.value],
+                            "requires_person": [a.requires_person, b.requires_person],
+                            "fired": [a.fired_ids, b.fired_ids], "group_exposure": str(facts[i].group_exposure)})
+    pinned = []
+    try:
+        import aip
+        old_rev = old.split("@")[-1]
+        pinned = [{"run_id": r.run_id, "revision": r.revision, "status": r.status}
+                  for r in aip.Client().runs(name=SKILL_NAME, limit=500) if r.revision == old_rev]
+    except Exception:  # noqa: BLE001
+        pass
+    return {"old": policy.policy_version(rules_old), "new": policy.policy_version(rules_new),
+            "changes": changes, "runs_pinned_to_old": pinned}
 
 
 def export_traces(runs_path: Path | None = None, configuration: str = "ch3-freeform") -> Path:

@@ -1,7 +1,8 @@
 # A person must confirm this decision
 
-Application {application_id} is a **{rule_outcome}** that the policy will not let an agent file on
-its own. Reasons: {person_reasons}.
+Application {application_id} is a **{rule_outcome}** that the lending policy reserves for a person.
+Rules that reserve it: {person_reasons} (P6: declining a customer of ten years or more; P7: group
+exposure above $2,000,000).
 
 Decision record: {decision_id}
 

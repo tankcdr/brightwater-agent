@@ -65,7 +65,9 @@ def file(state: dict[str, Any], assets: dict[str, str]) -> dict[str, Any]:
     out = tools.file_decision(ctx, state["application_id"], state["rule_outcome"], state["rationale"],
                               state["requires_person"],
                               assessment={k: state[k] for k in ("risk_tier", "cash_flow_stable", "recommendation")},
-                              answered_by="pending")
+                              answered_by="pending",
+                              # the rules this revision applied, not whatever the installed package holds
+                              policy_version=".".join(r.removeprefix("policy:") for r in state["policy_records"]))
     return {"decision_id": out["decision_id"], "status": out["status"]}
 
 

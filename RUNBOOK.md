@@ -49,9 +49,11 @@ Langfuse UI: http://localhost:3000 (reader@brightwater.example / brightwater-loc
 
 ## Ch 4. The compiled procedure
 
+Revision 1 (P1 to P6) is kept in `skills/revisions/r1/`. Publish it first so Ch 5 has something to change.
+
 ```bash
 aip config --server http://localhost:8000 --token brightwater-aip-local
-aip publish skills/brightwater-loan-assessment | tee results/live/ch4-publish-r1.txt
+aip publish skills/revisions/r1/brightwater-loan-assessment | tee results/live/ch4-publish-r1.txt
 R1=$(aip list | awk '/brightwater-loan-assessment/{print $2}')
 brightwater procedure run --handbuilt --repeat 3 --skill brightwater-loan-assessment@$R1 \
     --auto-confirm chris | tee results/live/ch4-runs.txt
@@ -61,6 +63,15 @@ brightwater results table
 
 `--auto-confirm` answers the P6 confirmation as you, so the timing runs are unattended. Run APP-H6
 once more without it to answer the confirmation yourself.
+
+## Ch 5. A governed policy change
+
+```bash
+aip publish skills/brightwater-loan-assessment | tee results/live/ch5-publish-r2.txt
+R2=$(aip list | awk '/brightwater-loan-assessment/{print $2}')
+brightwater procedure impact brightwater-loan-assessment@$R1 brightwater-loan-assessment@$R2 | tee results/live/ch5-impact.txt
+aip runs | head -20 | tee results/live/ch5-runs-by-revision.txt
+```
 
 ## Finally
 

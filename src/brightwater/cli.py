@@ -211,6 +211,23 @@ def cmd_procedure_build(a: argparse.Namespace) -> None:
         print(f"wrote {p}")
 
 
+def cmd_procedure_impact(a: argparse.Namespace) -> None:
+    from collections import Counter
+
+    from . import procedure
+    out = procedure.impact(a.old, a.new)
+    if a.json:
+        print(json.dumps(out, indent=2))
+        return
+    print(f"policy {out['old']} -> {out['new']}")
+    for c in out["changes"]:
+        print(f"{c['application_id']:<10} {c['outcome'][0]:>8} -> {c['outcome'][1]:<8} person {c['requires_person'][0]!s:>5} -> "
+              f"{c['requires_person'][1]!s:<5} fired {','.join(c['fired'][1])}  exposure {float(c['group_exposure']):,.0f}")
+    kinds = Counter("outcome" if c["outcome"][0] != c["outcome"][1] else "person only" for c in out["changes"])
+    print(f"{len(out['changes'])} application(s) change ({dict(kinds)}); "
+          f"{len(out['runs_pinned_to_old'])} recorded run(s) stay pinned to the old revision")
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
@@ -307,6 +324,12 @@ def main(argv: list[str] | None = None) -> None:
     prr.add_argument("--auto-confirm", metavar="USER", help="answer person-only steps as USER (tests and demos only)")
     prr.add_argument("--record", action="store_true", help="also record scripted runs")
     prr.set_defaults(fn=cmd_procedure_run)
+
+    pi = pr.add_parser("impact", help="which applications change between two procedure revisions (Ch 5)")
+    pi.add_argument("old", help="old revision: a skill folder or name@revision")
+    pi.add_argument("new", help="new revision: a skill folder or name@revision")
+    pi.add_argument("--json", action="store_true")
+    pi.set_defaults(fn=cmd_procedure_impact)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

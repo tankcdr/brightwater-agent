@@ -204,8 +204,11 @@ def get_policy(ctx: RunContext, rules: tuple[policy.Rule, ...] = policy.RULES) -
 
 def file_decision(ctx: RunContext, application_id: str, outcome: str, rationale: str, requires_person: bool,
                   assessment: dict[str, Any] | None = None, answered_by: str | None = None,
-                  b: Backends = BACKENDS) -> dict[str, Any]:
-    """File the decision. Rejected, with reasons, if the rationale fails the linter."""
+                  policy_version: str | None = None, b: Backends = BACKENDS) -> dict[str, Any]:
+    """File the decision. Rejected, with reasons, if the rationale fails the linter.
+
+    `policy_version` is the version of the rules actually applied. The compiled procedure passes the
+    one its revision shipped with; the free-form agent applies the installed policy, the default."""
     outcome = outcome.strip().lower()
     if outcome not in ("approve", "review", "decline"):
         return {"filed": False, "errors": [f"outcome must be approve, review or decline, not {outcome!r}"]}
@@ -220,7 +223,7 @@ def file_decision(ctx: RunContext, application_id: str, outcome: str, rationale:
            "rationale": rationale, "cited_records": linter.cited(rationale), "assessment": assessment,
            "configuration": ctx.configuration, "run_id": ctx.run_id, "trace_id": ctx.trace_id,
            "answered_by": answered_by or f"agent:{ctx.model}", "semantic_version": semantic_version(),
-           "policy_version": policy.policy_version(), "records_read": sorted(ctx.records)}
+           "policy_version": policy_version or policy.policy_version(), "records_read": sorted(ctx.records)}
     decision_id = b.file(row)
     ctx.decision = {**row, "decision_id": decision_id}
     return {"filed": True, "decision_id": decision_id, "status": row["status"]}

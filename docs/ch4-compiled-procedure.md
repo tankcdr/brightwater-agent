@@ -264,4 +264,4 @@ The decision stays `pending_person`. The step is a `client_task` like the ration
 
 The procedure is now a published, hash-identified artifact, and every run is recorded against the revision that ran. That makes the next question answerable: when the policy changes, which applicants are affected, and which past decisions were made under the old rules?
 
-**Previous:** [Chapter 3](ch3-free-form-agent.md) · **Next:** Chapter 5. A governed policy change
+**Previous:** [Chapter 3](ch3-free-form-agent.md) · **Next:** [Chapter 5. A governed policy change](ch5-governed-policy-change.md)

@@ -58,4 +58,19 @@ def test_rules(change, outcome, fired, person):
 def test_decision_is_serializable():
     d = evaluate(replace(CLEAN, dscr=D("1.2")))
     assert d.to_dict()["fired"][0]["rule_id"] == "P3"
-    assert d.policy_version == "P1v1.P2v1.P3v1.P4v1.P5v1.P6v1"
+    assert d.policy_version == "P1v1.P2v1.P3v1.P4v1.P5v1.P6v1.P7v1"
+
+
+def test_p7_sends_very_large_exposure_to_a_person():
+    d = evaluate(replace(CLEAN, group_exposure=D("2000000.01")))
+    assert (d.outcome, d.fired_ids, d.requires_person) == (Outcome.REVIEW, ["P4", "P7"], True)
+    # The side effect Chapter 5 calls out: a decline above the line now waits for a person too.
+    d = evaluate(replace(CLEAN, group_exposure=D("2500000"), dscr=D("0.9")))
+    assert (d.outcome, d.requires_person) == (Outcome.DECLINE, True)
+
+
+def test_rules_without_p7_behave_as_revision_1():
+    from brightwater.policy import RULES
+    rev1 = tuple(r for r in RULES if r.rule_id != "P7")
+    d = evaluate(replace(CLEAN, group_exposure=D("2500000")), rev1)
+    assert (d.outcome, d.fired_ids, d.requires_person) == (Outcome.REVIEW, ["P4"], False)

@@ -69,6 +69,12 @@ RULES: tuple[Rule, ...] = (
         "Declining a customer of 10 or more years requires a person to confirm before the decision is filed.",
         {"tenure_years": 10},
     ),
+    # Added in Chapter 5 to show a governed policy change.
+    Rule(
+        "P7", 1, "Very large group exposure needs a person",
+        "Group exposure above the second line always goes to a person before the decision is filed.",
+        {"second_line": "2000000"},
+    ),
 )
 
 
@@ -211,13 +217,19 @@ def evaluate(facts: Facts, rules: tuple[Rule, ...] = RULES) -> Decision:
                                f"an owner of the applicant holds {worst.owner_stake_pct:.0f}% of that business"))
             escalate(Outcome.REVIEW)
 
-    # P7 is added in Chapter 5.
-
     requires_person = False
     if (r := _rule(rules, "P6")) and outcome is Outcome.DECLINE \
             and facts.tenure_years >= Decimal(r.params["tenure_years"]):
         fired.append(Fired(r.rule_id, "requires_person",
                            f"customer for {facts.tenure_years:.1f} years; a person must confirm the decline"))
+        requires_person = True
+
+    # P7 (Chapter 5): above the second line a person decides, whatever the other rules say.
+    if (r := _rule(rules, "P7")) and facts.group_exposure > Decimal(r.params["second_line"]):
+        fired.append(Fired(r.rule_id, "requires_person",
+                           f"group exposure {facts.group_exposure:,.0f} is above the "
+                           f"{Decimal(r.params['second_line']):,.0f} second line"))
+        escalate(Outcome.REVIEW)
         requires_person = True
 
     return Decision(

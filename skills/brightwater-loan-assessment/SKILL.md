@@ -1,11 +1,11 @@
 ---
 name: brightwater-loan-assessment
-description: Assess a Brightwater Community Bank small-business loan application end to end. Gathers the governed figures from the semantic layer, applies lending policy rules P1 to P6 exactly, judges risk tier, cash flow stability and a recommendation, writes a cited rationale, files the decision, and hands any decline of a long-tenured customer to a person. Use when an application id (APP-...) needs a credit decision, a rationale or a risk view.
+description: Assess a Brightwater Community Bank small-business loan application end to end. Gathers the governed figures from the semantic layer, applies lending policy rules P1 to P7 exactly, judges risk tier, cash flow stability and a recommendation, writes a cited rationale, files the decision, and hands any decline of a long-tenured customer, and any group exposure above $2,000,000, to a person. Use when an application id (APP-...) needs a credit decision, a rationale or a risk view.
 license: Apache-2.0
 metadata:
   aip-version: "0.6a1"
   author: long-run-advisory
-  version: "1"
+  version: "2"
 ---
 
 # AIP runtime — format 0.6a1
@@ -33,7 +33,8 @@ purpose: >
   Turn a small-business loan application id into a filed, explainable credit decision. The lending
   policy decides the outcome deterministically from governed figures; a decision step adds the
   judgment a reviewer needs (risk tier, cash flow stability, recommendation); the agent writes the
-  rationale; a person must confirm any decline of a customer of ten years or more.
+  rationale; a person must confirm any decline of a customer of ten years or more (P6) and any
+  application whose group exposure is above $2,000,000 (P7).
 
 trigger_when:
   - A Brightwater small-business loan application (APP-...) needs a credit decision filed.
@@ -81,7 +82,7 @@ steps:
 
   - name: apply-policy
     kind: execution
-    description: Apply lending rules P1 to P6 exactly, reporting every rule that holds; a decline outranks a review, which outranks an approval.
+    description: Apply lending rules P1 to P7 exactly, reporting every rule that holds; a decline outranks a review, which outranks an approval.
     inputs:
       - name: facts
         type: object
@@ -98,7 +99,7 @@ steps:
         description: Each rule that held, with its effect and reason.
       - name: requires_person
         type: boolean
-        description: True when a person must confirm before the decision is final (P6).
+        description: True when a person must confirm before the decision is final (P6, P7).
       - name: person_reasons
         type: list[*]
         description: The rules that require a person.
@@ -223,7 +224,7 @@ steps:
 
   - name: needs-person
     kind: router
-    description: Declines of long-tenured customers wait for a person; everything else is done.
+    description: Decisions a rule reserves for a person (P6, P7) wait for one; everything else is done.
     branch_on: requires_person
     branches:
       "true": confirm-with-person
@@ -231,7 +232,7 @@ steps:
 
   - name: confirm-with-person
     kind: client_task
-    description: A credit officer confirms or returns the decline. Never answered by an agent.
+    description: A credit officer confirms or returns the decision, seeing which rules reserved it. Never answered by an agent.
     inputs:
       - name: application_id
         type: string

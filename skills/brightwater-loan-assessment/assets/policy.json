@@ -52,5 +52,14 @@
     "params": {
       "tenure_years": 10
     }
+  },
+  {
+    "rule_id": "P7",
+    "version": 1,
+    "title": "Very large group exposure needs a person",
+    "text": "Group exposure above the second line always goes to a person before the decision is filed.",
+    "params": {
+      "second_line": "2000000"
+    }
   }
 ]

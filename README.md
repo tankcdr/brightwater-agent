@@ -48,7 +48,7 @@ All names, businesses and figures are invented.
 | `ch2` | [Semantic layer](docs/ch2-semantic-layer.md) | When someone changes what "DSCR" means, what moves, and can you still prove the numbers? |
 | `ch3` | [Free-form agent, fully recorded](docs/ch3-free-form-agent.md) | Left to itself, what does a capable agent cost, and how consistent is it? |
 | `ch4` | [Compile the runs into an AIP procedure](docs/ch4-compiled-procedure.md) | What changes when the procedure is fixed and the model only judges and writes? |
-| `ch5` | A governed policy change (coming) | When the policy changes, who is affected, and can you prove what the old rules were? |
+| `ch5` | [A governed policy change](docs/ch5-governed-policy-change.md) | When the policy changes, who is affected, and can you prove what the old rules were? |
 | `ch6` | Own the decision model (coming) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
 | `ch7` | Private inference end to end (coming) | Can the whole thing run without data leaving the machine, and how would you prove it? |
 | `ch8` | Identity, entitlements and the control plane (coming) | Who is allowed to make this decision, and what stops everyone else? |

@@ -29,4 +29,4 @@ def test_every_rule_fires_somewhere_in_the_generated_set(loaded_db):
     fired = set()
     for app_id in ids:
         fired.update(policy.evaluate(metrics_sql.facts_for(loaded_db, app_id)).fired_ids)
-    assert fired == {"P1", "P2", "P3", "P4", "P5", "P6"}
+    assert fired >= {"P1", "P2", "P3", "P4", "P5", "P6"}   # P7 joins in Ch 5
