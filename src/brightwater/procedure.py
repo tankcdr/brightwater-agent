@@ -6,6 +6,8 @@ The procedure decides the order of steps; the driver only acts at pauses:
   answers the typed questions. AIP records these answers as `manual`, the
   same as a person's, so the driver also records who actually answered
   (`answered_by`) on the filed decision and in the memory graph.
+* `review` (a decision model answered under its threshold, Ch 6): the driving
+  model may accept or override.
 * `client_task` `draft-rationale`: the driving model writes the rationale. The
   driver lints it before answering and asks again with the errors until it
   passes, so the `file` step never sees a bad rationale.
@@ -120,7 +122,9 @@ Person = Callable[[Any], dict[str, Any]]
 
 
 def console_person(pause: Any) -> dict[str, Any]:
-    """Ask a person at the terminal."""
+    """Ask a person at the terminal: a review of the decision model's answers, or a confirmation."""
+    if pause.kind == "review":
+        return _console_review(pause)
     print("\n" + pause.task)
     ok = input("Confirm this decision? [y/N] ").strip().lower() == "y"
     who = input("Your user id: ").strip() or os.getenv("USER", "officer")
@@ -128,10 +132,34 @@ def console_person(pause: Any) -> dict[str, Any]:
     return {"confirmed": ok, "confirmed_by": who, "confirmation_note": note}
 
 
+def _console_review(pause: Any) -> dict[str, Any]:
+    """Show each answer the decision model was unsure of, and return only the ones the person changes.
+    An empty line keeps the model's answer."""
+    from aip.client.runner import _coerce
+
+    print(f"\nThe decision model was unsure at step {pause.step}. Review its answers:")
+    overrides: dict[str, Any] = {}
+    for item in pause.review:
+        name = item["question"]
+        current = pause.proposed_answers.get(name)
+        print(f"\n{name}: {item.get('reason', '')}  (model says {json.dumps(current)})")
+        if "probabilities" in item:
+            print("  " + json.dumps(item["probabilities"]))
+        raw = input(f"  keep {json.dumps(current)}? enter to keep, or a new value: ").strip()
+        if raw:
+            dtype = "boolean" if isinstance(current, bool) else "integer" if isinstance(current, int) else "string"
+            overrides[name] = _coerce(raw, dtype)
+    return overrides
+
+
 def auto_person(user: str = "test-officer") -> Person:
-    """Confirms every decision. Tests and demos only."""
+    """Accepts every review proposal and confirms every decision. Tests and demos only."""
     def answer(pause: Any) -> dict[str, Any]:
+        if pause.kind == "review":
+            return {}
         return {"confirmed": True, "confirmed_by": user, "confirmation_note": "confirmed (test)"}
+    answer.user = user  # type: ignore[attr-defined]
+    answer.automatic = True  # type: ignore[attr-defined]  (its review answers are not human labels)
     return answer
 
 
@@ -143,18 +171,22 @@ class ProcedureRun:
     steps: list[str]
     human_pauses: int
     decision_pauses: int
+    review_pauses: int
 
 
 def run(application_id: str, answerer: Answerer, person: Person, configuration: str = "ch4-procedure",
-        skill: str | None = None) -> ProcedureRun:
+        skill: str | None = None, decision_client: Any = None) -> ProcedureRun:
     import aip
 
+    from . import aip_patch
+    aip_patch.apply()
     ctx = tools.RunContext(application_id=application_id, configuration=configuration, model=answerer.name)
     target = skill or (SKILL_NAME if os.getenv("AIP_SERVER") or _configured_server() else str(SKILL_DIR))
-    client = aip.Client()
+    client = aip.Client(decision_client=decision_client) if decision_client else aip.Client()
     tracer = tracing.setup()
     steps: list[str] = []
-    human = decisions = 0
+    human = decisions = reviews = 0
+    reviewer = None
     with tracer.start_as_current_span(f"run_procedure {SKILL_NAME}", attributes={
             "gen_ai.operation.name": "invoke_agent", "gen_ai.agent.name": SKILL_NAME,
             "gen_ai.request.model": answerer.name, "brightwater.application_id": application_id,
@@ -188,6 +220,14 @@ def run(application_id: str, answerer: Answerer, person: Person, configuration: 
                 decisions += 1
                 answer = answerer.decide(result)
                 ctx.assessment = answer
+            elif result.kind == "review":
+                # A decision model answered under the author's threshold: a person decides (Ch 6).
+                reviews += 1
+                human += 1
+                answer = person(result)
+                who = getattr(person, "user", None) or os.getenv("BRIGHTWATER_USER") or os.getenv("USER", "console")
+                reviewer = f"auto:{who}" if getattr(person, "automatic", False) else f"user:{who}"
+                _record_review(application_id, result, answer, reviewer)
             elif result.step in PERSON_STEPS:
                 human += 1
                 answer = person(result)
@@ -213,6 +253,13 @@ def run(application_id: str, answerer: Answerer, person: Person, configuration: 
     not_filed = isinstance(result, aip.Paused)  # stopped at draft-rationale: see above
     final = result.state
     ctx.aip_run_id = result.run_id  # type: ignore[attr-defined]
+    if decision_client is not None and reviews:
+        # The model proposed, a person decided: the person is who answered (the packet keeps both).
+        # Checked first: a reviewed run has no decision pause either.
+        answerer.resolver = reviewer
+    elif decision_client is not None and decisions == 0:
+        answerer.resolver = f"model:{getattr(decision_client, 'resolver_name', 'typesafe')}/" \
+                            f"{getattr(decision_client, 'version', None) or getattr(decision_client, 'model_name', 'unknown')}"
     if not not_filed:
         _finish(ctx, final, answerer, result.run_id, steps)
     if os.getenv("BRIGHTWATER_MEMORY", "on") == "on":
@@ -222,7 +269,22 @@ def run(application_id: str, answerer: Answerer, person: Person, configuration: 
 
         from . import graph
         asyncio.run(graph.record_run(ctx))
-    return ProcedureRun(ctx, result.run_id, steps, human, decisions)
+    return ProcedureRun(ctx, result.run_id, steps, human, decisions, reviews)
+
+
+def review_answers_path() -> Path:
+    return Path(os.getenv("BRIGHTWATER_RESULTS", ROOT / "results")) / "review_answers.jsonl"
+
+
+def _record_review(application_id: str, pause: Any, overrides: dict[str, Any], answered_by: str) -> None:
+    """Every human answer at a review pause becomes training data for the next model (Ch 6, Ch 10)."""
+    path = review_answers_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"application_id": application_id, "step": pause.step, "proposed": pause.proposed_answers,
+           "flagged": [f["question"] for f in pause.review], "final": {**pause.proposed_answers, **overrides},
+           "answered_by": answered_by, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row, default=str) + "\n")
 
 
 def _rationale_until_clean(answerer: Answerer, pause: Any, ctx: tools.RunContext) -> str | None:
@@ -248,7 +310,7 @@ def _finish(ctx: tools.RunContext, final: dict[str, Any], answerer: Answerer, ai
     with db.session() as conn:
         rows = db.rows(conn, "UPDATE agent.decision SET answered_by = :by, run_id = :run, trace_id = :trace "
                              "WHERE decision_id = CAST(:d AS uuid) RETURNING *",
-                       by=f"agent:{answerer.name}",
+                       by=f"agent:{answerer.name}" if not getattr(answerer, "resolver", None) else answerer.resolver,
                        run=aip_run_id, trace=ctx.trace_id, d=final["decision_id"])
     row = rows[0]
     ctx.decision = {**row, "decision_id": str(row["decision_id"]), "cited_records": row["cited_records"]}

@@ -1,11 +1,11 @@
 # Runbook: the live proofs
 
 Everything in this repo has a test that runs without services or model APIs (`pytest`, using
-the scripted driver). The live proofs below are the ones that need
-Docker, a model API key or a person. Run them in order; each step says what to
+the scripted driver and a stand-in decision model). The live proofs below are the ones that need
+Docker, a model API key, Apple Silicon or a person. Run them in order; each step says what to
 save under `results/live/` so the write-ups can quote real output.
 
-Target machine: any machine with Docker, [uv](https://docs.astral.sh/uv/),
+Target machine: Apple Silicon Mac with Docker Desktop, [uv](https://docs.astral.sh/uv/),
 and `ANTHROPIC_API_KEY` in the environment.
 
 ## 0. Setup
@@ -15,7 +15,7 @@ uv venv -p 3.14 && source .venv/bin/activate      # AIP 0.7.0 requires Python 3.
 uv pip install -e ".[dev]"
 mkdir -p results/live
 docker compose up -d --wait                                # Postgres, Neo4j (memory), Cube
-docker compose --profile aip up -d --wait --build          # Neo4j (AIP), AIP server
+docker compose --profile aip up -d --wait --build          # Neo4j (AIP), patched AIP server
 brightwater fixture generate && brightwater db init && brightwater db load && brightwater policy sync
 brightwater semantic build
 pytest -q 2>&1 | tee results/live/pytest.txt        # expect 0 failed, 0 skipped (Neo4j is up now)
@@ -71,6 +71,21 @@ aip publish skills/brightwater-loan-assessment | tee results/live/ch5-publish-r2
 R2=$(aip list | awk '/brightwater-loan-assessment/{print $2}')
 brightwater procedure impact brightwater-loan-assessment@$R1 brightwater-loan-assessment@$R2 | tee results/live/ch5-impact.txt
 aip runs | head -20 | tee results/live/ch5-runs-by-revision.txt
+```
+
+## Ch 6. The decision model (Apple Silicon)
+
+```bash
+brightwater dm dataset
+brightwater dm label | tee results/live/ch6-label.txt              # frontier labels, about 1,200 calls
+brightwater dm spot-check --n 30                                    # you review 30 labels
+brightwater dm export
+decision_model/train_mlx.sh train 2>&1 | tee results/live/ch6-train.txt
+decision_model/train_mlx.sh serve &                                 # port 8081
+brightwater dm calibrate | tee results/live/ch6-calibration.json
+brightwater dm evaluate --options A,C,D | tee results/live/ch6-evaluate.json   # add B with TYPESAFE_API_KEY
+brightwater procedure run --handbuilt --repeat 3 --configuration ch6-procedure-D \
+    --decision-model local:http://localhost:8081/v1 --auto-confirm chris | tee results/live/ch6-runs.txt
 ```
 
 ## Finally

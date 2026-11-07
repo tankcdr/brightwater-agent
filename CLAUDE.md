@@ -9,7 +9,7 @@ Follow `RUNBOOK.md` section by section, in order. Save every output it names und
 Stop and report if a step's output does not match what the runbook says to expect; do not edit
 code to make a proof pass without saying so.
 
-Steps that need a person (the P6 confirmation for APP-H6 in Ch 4) are
+Steps that need a person (labels spot-check in Ch 6, the P6 confirmation for APP-H6 in Ch 4) are
 answered by the user. Ask them.
 
 ## Conventions

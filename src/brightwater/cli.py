@@ -195,14 +195,21 @@ def cmd_procedure_run(a: argparse.Namespace) -> None:
     for app_id in _app_ids(a):
         for i in range(a.repeat):
             r = procedure.run(app_id, _answerer(a.model), person, configuration=a.configuration,
-                              skill=a.skill)
+                              skill=a.skill, decision_client=_decision_client(a.decision_model))
             row = None
             if a.model != "scripted" or a.record:
                 row = bench.record(r.ctx, extra={"aip_run_id": r.aip_run_id, "human_pauses": r.human_pauses,
-                                                 "decision_pauses": r.decision_pauses})
+                                                 "decision_pauses": r.decision_pauses, "review_pauses": r.review_pauses})
             d = r.ctx.decision or {"outcome": "NOT FILED", "status": "-"}
             print(f"{app_id} run {i + 1}: {d['outcome']:<8} {d['status']:<15} aip {r.aip_run_id}  "
                   f"steps {'>'.join(r.steps)}" + (f"  {row['wall_s']}s" if row else ""))
+
+
+def _decision_client(name: str | None):
+    if not name:
+        return None
+    from . import resolver
+    return resolver.client_for(name)
 
 
 def cmd_procedure_build(a: argparse.Namespace) -> None:
@@ -228,12 +235,56 @@ def cmd_procedure_impact(a: argparse.Namespace) -> None:
           f"{len(out['runs_pinned_to_old'])} recorded run(s) stay pinned to the old revision")
 
 
+def cmd_dm(a: argparse.Namespace) -> None:
+    from . import decision_model as dm
+    from . import resolver
+    if a.sub == "dataset":
+        rows = dm.build_states()
+        dm.write_jsonl(dm.DATA / "states.jsonl", rows)
+        print({s: sum(r["split"] == s for r in rows) for s in ("train", "valid", "test")})
+    elif a.sub == "label":
+        print(dm.label_all(a.labeller, a.limit))
+    elif a.sub == "spot-check":
+        print(dm.spot_check(a.n))
+    elif a.sub == "export":
+        print(dm.export())
+    elif a.sub == "calibrate":
+        print(json.dumps(dm.calibrate(resolver.client_for(f"local:{a.url}")), indent=2))
+    elif a.sub == "evaluate":
+        opts = {}
+        for o in a.options.split(","):
+            if o == "A":
+                from . import agent, procedure
+                ans = procedure.ModelAnswerer(agent.chat_model(a.driver), a.driver)
+                opts["A"] = lambda state, qs, _a=ans: _a.decide(type("P", (), {"state": state, "questions": qs})())
+            elif o == "B":
+                from typesafe_sdk import TypeSafeClient
+                opts["B"] = TypeSafeClient()
+            elif o == "C":
+                opts["C"] = resolver.client_for(f"frontier:{a.driver}")
+            elif o == "D":
+                opts["D"] = resolver.client_for(f"local:{a.url}")
+        print(json.dumps(dm.evaluate(opts, repeats=a.repeats, limit=a.limit), indent=2))
+
+
+def cmd_aip_server(a: argparse.Namespace) -> None:
+    from . import aip_patch
+    aip_patch.serve(a.args)
+
+
 def cmd_results_table(a: argparse.Namespace) -> None:
     from . import bench
     print(bench.table())
 
 
 def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["aip-server"]:
+        # Everything after the subcommand belongs to `aip server`. argparse's REMAINDER does not
+        # capture a first argument that starts with "--" on Python 3.14, so hand it over untouched.
+        from . import aip_patch
+        aip_patch.serve(argv[1:])
+        return
     p = argparse.ArgumentParser(prog="brightwater", description="Brightwater loan assessment tutorial")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -321,6 +372,7 @@ def main(argv: list[str] | None = None) -> None:
     prr.add_argument("--model", help="driving model id, or 'scripted' (default $BRIGHTWATER_DRIVER_MODEL)")
     prr.add_argument("--configuration", default="ch4-procedure")
     prr.add_argument("--skill", help="a skill folder or published name[@revision] (default: the server's, else the repo folder)")
+    prr.add_argument("--decision-model", help="Ch 6: answer decisions with a resolver: frontier:<model> or local:<url>")
     prr.add_argument("--auto-confirm", metavar="USER", help="answer person-only steps as USER (tests and demos only)")
     prr.add_argument("--record", action="store_true", help="also record scripted runs")
     prr.set_defaults(fn=cmd_procedure_run)
@@ -330,6 +382,31 @@ def main(argv: list[str] | None = None) -> None:
     pi.add_argument("new", help="new revision: a skill folder or name@revision")
     pi.add_argument("--json", action="store_true")
     pi.set_defaults(fn=cmd_procedure_impact)
+
+    dmp = sub.add_parser("dm", help="the decision model (Ch 6)").add_subparsers(dest="sub", required=True)
+    dmp.add_parser("dataset", help="assess-step states for every application, split by application").set_defaults(fn=cmd_dm)
+    dl = dmp.add_parser("label", help="label every state against the rubric")
+    dl.add_argument("--labeller", default="frontier:claude-opus-5-5", help="frontier:<model> or rubric")
+    dl.add_argument("--limit", type=int)
+    dl.set_defaults(fn=cmd_dm)
+    ds = dmp.add_parser("spot-check", help="a person checks a random sample of labels")
+    ds.add_argument("--n", type=int, default=30)
+    ds.set_defaults(fn=cmd_dm)
+    dmp.add_parser("export", help="chat-format JSONL for fine-tuning").set_defaults(fn=cmd_dm)
+    dc = dmp.add_parser("calibrate", help="fit temperatures on the validation split against the served model")
+    dc.add_argument("--url", default="http://localhost:8081/v1")
+    dc.set_defaults(fn=cmd_dm)
+    de = dmp.add_parser("evaluate", help="compare decision model options on the held-out split")
+    de.add_argument("--options", default="A,C,D", help="comma list of A,B,C,D")
+    de.add_argument("--driver", default="claude-opus-5-5", help="model for options A and C")
+    de.add_argument("--url", default="http://localhost:8081/v1")
+    de.add_argument("--repeats", type=int, default=3)
+    de.add_argument("--limit", type=int)
+    de.set_defaults(fn=cmd_dm)
+
+    asv = sub.add_parser("aip-server", help="`aip server` with the resolver patch applied (Ch 6)")
+    asv.add_argument("args", nargs=argparse.REMAINDER)
+    asv.set_defaults(fn=cmd_aip_server)
 
     rs = sub.add_parser("results", help="the results table").add_subparsers(dest="sub", required=True)
     rs.add_parser("table", help="rebuild results/RESULTS.md from results/runs.jsonl").set_defaults(fn=cmd_results_table)

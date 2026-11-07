@@ -1,7 +1,7 @@
 # Services for the tutorial. Profiles add each chapter's services:
 #
 #   docker compose up -d                      # Ch 0-2: Postgres, Neo4j (memory), Cube
-#   docker compose --profile aip up -d        # Ch 4+: Neo4j (AIP catalog) and the AIP server
+#   docker compose --profile aip up -d        # Ch 4+: Neo4j (AIP catalog) and the patched AIP server
 #
 # Langfuse (Ch 3) is its own project:
 #   docker compose -p langfuse -f docker/langfuse/docker-compose.yml --env-file docker/langfuse/langfuse.env up -d
@@ -85,13 +85,13 @@ services:
       retries: 30
 
   aip-server:
-    # `aip server` on the Neo4j backend.
+    # `aip server` with the Ch 6 resolver patch, on the Neo4j backend.
     profiles: [aip]
     build: {context: ., dockerfile: docker/brightwater/Dockerfile}
     image: brightwater/app:latest
     depends_on:
       neo4j-aip: {condition: service_healthy}
-    command: [server, --backend, neo4j, --uri, "bolt://neo4j-aip:7687", --user, neo4j,
+    command: [aip-server, --backend, neo4j, --uri, "bolt://neo4j-aip:7687", --user, neo4j,
               --password, brightwater, --host, 0.0.0.0, --port, "8000", --token, brightwater-aip-local]
     ports: ["8000:8000"]
 

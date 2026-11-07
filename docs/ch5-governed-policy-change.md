@@ -287,4 +287,4 @@ Undo it: `git checkout src/ skills/`.
 
 A policy change is now four reviewed edits, a measured blast radius, and a new revision that leaves the old one intact. The judgment step is still answered by a frontier model, for a frontier price, and its confidence is not recorded at all. Chapter 6 trains a model of our own for it.
 
-**Previous:** [Chapter 4](ch4-compiled-procedure.md) · **Next:** Chapter 6. Own the decision model
+**Previous:** [Chapter 4](ch4-compiled-procedure.md) · **Next:** [Chapter 6. Own the decision model](ch6-own-the-decision-model.md)

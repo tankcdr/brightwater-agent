@@ -51,4 +51,5 @@ jobs:
       # Ch 4: the skill must validate.
       - run: uv run aip-spec validate skills/brightwater-loan-assessment
 
+      # Every chapter's proof that runs without a model API (scripted driver, stand-in decision model).
       - run: uv run pytest -v

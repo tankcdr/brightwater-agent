@@ -165,6 +165,9 @@ def write_csv(ds: Dataset, out_dir: Path) -> dict[str, str]:
 class _Builder:
     def __init__(self, seed: int, as_of: date):
         self.rng = random.Random(seed)
+        # A second stream for cash-flow volatility (added in Ch 6), kept separate so
+        # that adding it did not move any other value the Ch 0-2 proofs depend on.
+        self.vol_rng = random.Random(seed * 1_000_003 + 1)
         self.as_of = as_of
         self.ds = Dataset()
         self.ledger_months = [add_months(month_start(as_of), -i) for i in range(14, -1, -1)]  # 15 months
@@ -236,7 +239,8 @@ class _Builder:
         base = (window_net_total / 12) if window_net_total is not None else money(self.rng.uniform(4000, 40000))
         nets: dict[date, Decimal] = {}
         if window:
-            weights = [1 + self.rng.uniform(-0.15, 0.15) for _ in window]
+            amp = 0.15 if business_id.startswith("BUS-H") else self.vol_rng.choices([0.15, 0.35, 0.6], [6, 3, 1])[0]
+            weights = [1 + self.rng.uniform(-0.15, 0.15) * (amp / 0.15) for _ in window]
             s = sum(weights)
             vals = [money(window_net_total * Decimal(str(w / s))) for w in weights]
             vals[-1] += window_net_total - sum(vals)

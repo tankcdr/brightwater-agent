@@ -20,7 +20,7 @@ CREATE TABLE agent.decision (
     configuration     text NOT NULL,      -- e.g. ch3-freeform, ch4-procedure
     run_id            text NOT NULL,      -- the agent run, or the AIP run id from Ch 4
     trace_id          text,               -- OpenTelemetry trace id
-    answered_by       text NOT NULL,      -- who answered the judgment: agent:<model>
+    answered_by       text NOT NULL,      -- who answered the judgment: agent:<model>, model:<resolver>/<version>, user:<subject>
     confirmed_by      text,               -- the person who confirmed a P6/P7 decision
     semantic_version  text NOT NULL,      -- hash of the Ossie model that produced the figures
     policy_version    text NOT NULL,

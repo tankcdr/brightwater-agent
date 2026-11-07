@@ -49,7 +49,7 @@ All names, businesses and figures are invented.
 | `ch3` | [Free-form agent, fully recorded](docs/ch3-free-form-agent.md) | Left to itself, what does a capable agent cost, and how consistent is it? |
 | `ch4` | [Compile the runs into an AIP procedure](docs/ch4-compiled-procedure.md) | What changes when the procedure is fixed and the model only judges and writes? |
 | `ch5` | [A governed policy change](docs/ch5-governed-policy-change.md) | When the policy changes, who is affected, and can you prove what the old rules were? |
-| `ch6` | Own the decision model (coming) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
+| `ch6` | [Own the decision model](docs/ch6-own-the-decision-model.md) | Can a small model you own answer the judgment step, and does it know when it is unsure? |
 | `ch7` | Private inference end to end (coming) | Can the whole thing run without data leaving the machine, and how would you prove it? |
 | `ch8` | Identity, entitlements and the control plane (coming) | Who is allowed to make this decision, and what stops everyone else? |
 | `ch9` | The audit packet (coming) | Given only a decision id, can you reconstruct everything, and tell if anyone changed it? |
@@ -104,8 +104,9 @@ You need Docker and [uv](https://docs.astral.sh/uv/). uv installs the Python eac
 | From | You also need |
 |---|---|
 | Ch 3 | an Anthropic API key (`ANTHROPIC_API_KEY`); Langfuse is optional |
+| Ch 6, 7 | an Apple Silicon Mac (MLX-LM, Ollama), or Linux with an NVIDIA GPU (`compose.private.yaml`) |
 
-Every chapter's tests also run with no API key at all, using a scripted driver; that is what CI runs. The live runs are what produce the numbers.
+Every chapter's tests also run with no API key at all, using a scripted driver and a stand-in decision model; that is what CI runs. The live runs are what produce the numbers.
 
 ```bash
 git clone https://github.com/tankcdr/brightwater-agent.git && cd brightwater-agent
@@ -146,6 +147,7 @@ src/brightwater/       policy, metrics, ontology gate, graph, tools, agent, proc
                        decision model, netwatch, identity, audit, loop, CLI
 skills/                the compiled AIP procedure (current revision), its sources, and revision 1
 decision_model/        rubric, MLX-LM training script, model registry
+aip_resolver/          the AIP patch that records which decision model answered
 results/               prices, run records and the computed results table
 queries/               numbered graph queries used in the text
 tests/                 one proof per chapter

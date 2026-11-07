@@ -1,0 +1,29 @@
+diff --git a/src/aip/client/resolver.py b/src/aip/client/resolver.py
+index 21e9abb..747e361 100644
+--- a/src/aip/client/resolver.py
++++ b/src/aip/client/resolver.py
+@@ -90,7 +90,9 @@ class Resolver:
+             raise OutputValidationError(pause["step"], [f"the decision model gave no answer for {missing}"],
+                                         missing=missing)
+         proposed = {name: Decision.collapse(answers[name]) for name in pause["questions"]}
+-        attribution = {"resolver": "typesafe", "model": result.get("model"),
++        # An injected decision client may name itself (`resolver_name`); TypeSafe's does not.
++        resolver_name = getattr(self.client, "resolver_name", None) or "typesafe"
++        attribution = {"resolver": resolver_name, "model": result.get("model"),
+                        "confidence": {name: confidence(answers[name]) for name in pause["questions"]},
+                        "reviewed": False}
+         flagged = flag({name: answers[name] for name in pause["questions"]}, pause.get("thresholds") or {})
+diff --git a/src/aip/model/steps.py b/src/aip/model/steps.py
+index 87a8505..94daed5 100644
+--- a/src/aip/model/steps.py
++++ b/src/aip/model/steps.py
+@@ -388,7 +388,8 @@ def confidence(answer: JSON) -> float:
+     return answer["confidence"]
+ 
+ 
+-RESOLVERS = ("typesafe", "manual")
++# "endpoint": a decision client other than TypeSafe, named by its own `resolver_name`.
++RESOLVERS = ("typesafe", "manual", "endpoint")
+ 
+ 
+ def manual() -> JSON:
